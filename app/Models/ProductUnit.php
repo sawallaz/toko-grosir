@@ -28,4 +28,9 @@ class ProductUnit extends Model
     {
         return $this->belongsTo(Unit::class);
     }
+     // [BARU] Relasi ke Harga Grosir
+    public function wholesalePrices()
+    {
+        return $this->hasMany(ProductWholesalePrice::class)->orderBy('min_qty');
+    }
 }

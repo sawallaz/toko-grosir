@@ -52,6 +52,7 @@
                             selected_unit_id: detail.product_unit_id,
                             quantity: detail.quantity,
                             price: detail.price_at_entry,
+                            subtotal: (detail.quantity * detail.price_at_entry).toString(), // [UPDATE] Hitung subtotal
                             results: [], showResults: false, focusIndex: -1, error: false
                         };
                     });
@@ -78,7 +79,8 @@
             addRow() {
                 this.rows.push({
                     product_name: '', product_id: null, units: [], selected_unit_id: null, 
-                    quantity: '', price: '', results: [], showResults: false, focusIndex: -1, error: false
+                    quantity: '', price: '', subtotal: '', // [UPDATE] Tambah subtotal
+                    results: [], showResults: false, focusIndex: -1, error: false
                 });
             },
             
@@ -86,7 +88,11 @@
                 if(this.rows.length > 1) {
                     this.rows.splice(index, 1);
                 } else {
-                    this.rows[0] = { product_name: '', product_id: null, units: [], selected_unit_id: null, quantity: '', price: '', results: [], showResults: false, focusIndex: -1, error: false };
+                    this.rows[0] = { 
+                        product_name: '', product_id: null, units: [], selected_unit_id: null, 
+                        quantity: '', price: '', subtotal: '', // [UPDATE] Tambah subtotal
+                        results: [], showResults: false, focusIndex: -1, error: false 
+                    };
                 }
             },
 
@@ -115,6 +121,9 @@
                     row.price = Number(baseUnit.harga_beli_modal) > 0 ? Number(baseUnit.harga_beli_modal) : ''; 
                 }
                 if(row.quantity === '') row.quantity = 1;
+                
+                // [UPDATE] Hitung subtotal otomatis
+                this.updateSubtotal(index);
 
                 this.$nextTick(() => {
                      const inputs = document.querySelectorAll(`input[name='items[${index}][quantity]']`);
@@ -128,6 +137,26 @@
                 let row = this.rows[index];
                 let unit = row.units.find(u => u.product_unit_id == row.selected_unit_id);
                 if (unit) row.price = Number(unit.harga_beli_modal) > 0 ? Number(unit.harga_beli_modal) : ''; 
+                
+                // [UPDATE] Hitung subtotal otomatis
+                this.updateSubtotal(index);
+            },
+
+            // [UPDATE] Hitung Harga dari Subtotal
+            updatePriceFromSubtotal(index) {
+                let row = this.rows[index];
+                let qty = Number(row.quantity);
+                let sub = Number(row.subtotal);
+
+                if (qty > 0 && sub > 0) {
+                    row.price = sub / qty; // Kalkulasi Balik
+                }
+            },
+
+            // [UPDATE] Hitung Subtotal dari Harga (Normal)
+            updateSubtotal(index) {
+                let row = this.rows[index];
+                row.subtotal = (Number(row.quantity) || 0) * (Number(row.price) || 0);
             },
 
             // --- NAVIGASI KEYBOARD ---

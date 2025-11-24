@@ -97,28 +97,38 @@
                             </select>
                         </td>
 
-                        <!-- [PERBAIKAN BATAS INPUT QTY] -->
+                        <!-- [UPDATE] KOLOM 3: QTY (Picu Update Subtotal) -->
                         <td class="px-4 py-2">
                             <input type="number" :name="'items['+index+'][quantity]'" x-model="row.quantity" 
                                    min="1" max="999999"
                                    oninput="if(this.value.length > 6) this.value = this.value.slice(0, 6);" 
                                    placeholder="0" 
+                                   @input="updateSubtotal(index)"
                                    @keydown.right.prevent="focusNext($event)" @keydown.left.prevent="focusPrev($event)" @keydown.enter.prevent="focusNext($event)" 
                                    class="w-full border-gray-300 rounded-md text-sm text-center focus:ring-indigo-500 focus:border-indigo-500">
                         </td>
 
-                        <!-- [PERBAIKAN BATAS INPUT HARGA] -->
+                        <!-- [UPDATE] KOLOM 4: HARGA BELI (Picu Update Subtotal) -->
                         <td class="px-4 py-2">
                             <input type="number" :name="'items['+index+'][price]'" x-model="row.price" 
                                    placeholder="0"
                                    min="0" max="999999999999"
                                    oninput="if(this.value.length > 12) this.value = this.value.slice(0, 12);"
+                                   @input="updateSubtotal(index)"
                                    @keydown.left.prevent="focusPrev($event)" @keydown.enter.prevent="focusNext($event)" 
                                    class="w-full border-gray-300 rounded-md text-sm text-right focus:ring-indigo-500 focus:border-indigo-500">
                         </td>
 
-                        <td class="px-4 py-2 text-right font-mono font-bold text-gray-700">
-                            <span x-text="formatRupiah((Number(row.quantity)||0) * (Number(row.price)||0))"></span>
+                        <!-- [UPDATE] KOLOM 5: SUBTOTAL (EDITABLE -> Picu Update Harga) -->
+                        <td class="px-4 py-2">
+                            <input type="number" 
+                                   x-model="row.subtotal" 
+                                   @input="updatePriceFromSubtotal(index)"
+                                   class="w-full border-gray-300 rounded-md text-sm text-right font-bold text-indigo-700 focus:ring-indigo-500 focus:border-indigo-500"
+                                   placeholder="0"
+                                   min="0" max="999999999999"
+                                   oninput="if(this.value.length > 12) this.value = this.value.slice(0, 12);"
+                                   @keydown.left.prevent="focusPrev($event)" @keydown.enter.prevent="focusNext($event)">
                         </td>
 
                         <td class="px-4 py-2 text-center">

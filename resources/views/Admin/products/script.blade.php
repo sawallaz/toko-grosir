@@ -39,7 +39,7 @@
 
                 @php
                     $oldUnits = old('units');
-                    $defaultUnit = [['unit_id' => '', 'price' => '', 'conversion' => 1, 'is_base_unit' => true]];
+                    $defaultUnit = [['unit_id' => '', 'price' => '', 'conversion' => 1, 'is_base_unit' => true, 'wholesale' => []]];
                     $createUnitsData = $oldUnits ? array_values($oldUnits) : $defaultUnit;
                     $initBaseIndex = old('is_base_unit_index', 0);
                 @endphp
@@ -47,7 +47,11 @@
                 if(!this.showEditModal) {
                     this.productRows = @json($createUnitsData).map((row, idx) => ({
                         unit_id: row.unit_id ? parseInt(row.unit_id) : '', 
-                        price: row.price, conversion: row.conversion, is_base_unit: (idx == {{ $initBaseIndex }}),
+                        price: row.price, 
+                        conversion: row.conversion, 
+                        is_base_unit: (idx == {{ $initBaseIndex }}),
+                        wholesale: row.wholesale || [],
+                        showWholesale: false
                     }));
                     this.baseRowIndex = {{ $initBaseIndex }};
                     this.$nextTick(() => this.refreshUnitNames());
@@ -70,6 +74,19 @@
                 } catch (e) { console.error('Gagal load master data'); }
             },
 
+            // --- FUNGSI GROSIR ---
+            addWholesale(rowIndex) {
+                this.productRows[rowIndex].wholesale.push({ min_qty: '', price: '' });
+            },
+
+            removeWholesale(rowIndex, wholesaleIndex) {
+                this.productRows[rowIndex].wholesale.splice(wholesaleIndex, 1);
+            },
+
+            toggleWholesale(rowIndex) {
+                this.productRows[rowIndex].showWholesale = !this.productRows[rowIndex].showWholesale;
+            },
+
             // --- EDIT MODAL (FIX DELAY & REFRESH) ---
             async openEditModal(id) {
                 // Selalu refresh data master saat buka edit
@@ -89,12 +106,17 @@
                     this.form.description = data.description;
                     this.form.foto_url = data.foto_produk ? `{{ Storage::url('') }}${data.foto_produk}` : '';
 
-                    // Mapping data
+                    // Mapping data dengan wholesale
                     let mappedRows = data.units.map(u => ({
                         unit_id: parseInt(u.unit_id), 
                         price: parseFloat(u.price), 
                         conversion: parseInt(u.conversion_to_base),
-                        is_base_unit: u.is_base_unit == 1
+                        is_base_unit: u.is_base_unit == 1,
+                        wholesale: u.wholesale_prices ? u.wholesale_prices.map(wp => ({
+                            min_qty: wp.min_qty,
+                            price: wp.price
+                        })) : [],
+                        showWholesale: false
                     }));
 
                     this.baseRowIndex = mappedRows.findIndex(r => r.is_base_unit);
@@ -102,8 +124,7 @@
                     
                     this.productRows = mappedRows;
 
-                    // [FIX GACOR] Kasih jeda 200ms sebelum modal tampil
-                    // Ini memberi waktu browser untuk "sadar" kalau data dropdown sudah ada
+                    // [FIX GACOR] Kasih jeda 100ms sebelum modal tampil
                     setTimeout(() => {
                         this.refreshUnitNames();
                         this.showEditModal = true; 
@@ -114,7 +135,6 @@
 
             // --- NAVIGASI KEYBOARD (FIX SKIP TOMBOL +) ---
             focusNext(e) {
-                // [FIX] Tambahkan :not([tabindex="-1"]) agar tombol + dilewati
                 const inputs = Array.from(document.querySelectorAll('input:not([type="hidden"]), select, textarea, button[type="submit"], button[type="button"]:not([disabled]):not([tabindex="-1"])'))
                                     .filter(el => !el.disabled && el.offsetParent !== null);
                 const index = inputs.indexOf(e.target);
@@ -140,21 +160,247 @@
                 }
             },
 
-            // ... (Fungsi CRUD & Helper lain TETAP SAMA, Copy Paste yang lama) ...
-            // Pastikan fungsi addUnit, removeUnit, refreshUnitNames, saveNewCategory, dll ada.
-            addUnit() { this.productRows.push({ unit_id: '', price: '', conversion: '', is_base_unit: false }); this.$nextTick(() => this.focusGrid(null, this.productRows.length - 1, 'unit_id')); },
-            removeUnit(index) { if (this.productRows.length <= 1) return; let wasBase = this.productRows[index].is_base_unit; this.productRows.splice(index, 1); if (wasBase) this.setBaseUnit(0); },
-            setBaseUnit(index) { this.productRows.forEach((row, i) => { row.is_base_unit = (i === index); if (i === index) row.conversion = 1; }); this.baseRowIndex = index; this.refreshUnitNames(); },
-            refreshUnitNames() { let baseRow = this.productRows[this.baseRowIndex]; if(baseRow && baseRow.unit_id) { let u = this.masterUnits.find(m => m.id == baseRow.unit_id); this.baseUnitName = u ? u.short_name : 'Pcs'; } else { this.baseUnitName = 'Pcs'; } },
-            onUnitChange(index) { this.refreshUnitNames(); },
-            openCreateModal() { this.showCreateModal = true; this.form = { id: null, name: '', kode_produk: '', category_id: '', status: 'active', description: '', foto_url: '' }; this.productRows = [{ unit_id: '', price: '', conversion: 1, is_base_unit: true }]; this.baseRowIndex = 0; this.refreshUnitNames(); },
-            
-            async toggleStatus(id) { try { let currentStatus = this.statusCache[id]; let newStatus = currentStatus === 'active' ? 'inactive' : 'active'; this.statusCache[id] = newStatus; const res = await fetch(`{{ url('admin/products') }}/${id}/toggle-status`, { method: 'POST', headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' } }); if(!res.ok) { this.statusCache[id] = currentStatus; alert('Gagal ubah status.'); } } catch(e) { console.error(e); } },
-            async saveNewCategory() { this.isSaving = true; this.categoryErrors = { name: '' }; this.globalCategoryError = ''; try { const res = await fetch('{{ route('admin.categories.storeAjax') }}', { method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}'}, body: JSON.stringify({ name: this.newCategoryName }) }); const data = await res.json(); if (!res.ok) { if(res.status===422) this.categoryErrors.name = data.errors.name?.[0] || ''; else this.globalCategoryError = data.message || 'Gagal.'; } else { this.masterCategories.push(data); this.form.category_id = data.id; this.showCategoryModal = false; this.newCategoryName = ''; } } catch(e) { this.globalCategoryError = 'Error jaringan'; } finally { this.isSaving = false; } },
-            async saveNewUnit() { this.isSaving = true; this.unitErrors = { name: '', short_name: '' }; this.globalUnitError = ''; try { const res = await fetch('{{ route('admin.units.storeAjax') }}', { method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}'}, body: JSON.stringify({ name: this.newUnitName, short_name: this.newUnitShortName }) }); const data = await res.json(); if (!res.ok) { if(res.status===422) { this.unitErrors.name = data.errors.name?.[0] || ''; this.unitErrors.short_name = data.errors.short_name?.[0] || ''; } else this.globalUnitError = data.message || 'Gagal.'; } else { this.masterUnits.push(data); this.showUnitModal = false; this.newUnitName = ''; this.newUnitShortName = ''; } } catch(e) { this.globalUnitError = 'Error jaringan'; } finally { this.isSaving = false; } },
-            startEditCategory(cat) { this.editCategoryId = cat.id; this.editCategoryName = cat.name; }, cancelEditCategory() { this.editCategoryId = null; }, async saveEditCategory(id) { try { const res = await fetch(`{{ url('admin/categories-ajax') }}/${id}`, { method: 'PATCH', headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}'}, body: JSON.stringify({ name: this.editCategoryName }) }); if(!res.ok) throw await res.json(); await this.loadMasterData(); this.cancelEditCategory(); } catch(e) { alert('Gagal update.'); } }, async deleteCategory(id) { if(!confirm('Hapus?')) return; try { const res = await fetch(`{{ url('admin/categories-ajax') }}/${id}`, { method: 'DELETE', headers: {'X-CSRF-TOKEN': '{{ csrf_token() }}'} }); if(!res.ok) throw await res.json(); this.masterCategories = this.masterCategories.filter(c => c.id != id); } catch(e) { alert(e.message || 'Gagal.'); } },
-            startEditUnit(u) { this.editUnitId = u.id; this.editUnitName = u.name; this.editUnitShortName = u.short_name; }, cancelEditUnit() { this.editUnitId = null; }, async saveEditUnit(id) { try { const res = await fetch(`{{ url('admin/units-ajax') }}/${id}`, { method: 'PATCH', headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}'}, body: JSON.stringify({ name: this.editUnitName, short_name: this.editUnitShortName }) }); if(!res.ok) throw await res.json(); await this.loadMasterData(); this.cancelEditUnit(); } catch(e) { alert('Gagal update.'); } }, async deleteUnit(id) { if(!confirm('Hapus?')) return; try { const res = await fetch(`{{ url('admin/units-ajax') }}/${id}`, { method: 'DELETE', headers: {'X-CSRF-TOKEN': '{{ csrf_token() }}'} }); if(!res.ok) throw await res.json(); this.masterUnits = this.masterUnits.filter(u => u.id != id); } catch(e) { alert(e.message || 'Gagal.'); } },
-            openDeleteModal(id, name) { this.deleteFormAction = `{{ url('admin/products') }}/${id}`; this.deleteProductName = name; this.showDeleteModal = true; }
+            // --- FUNGSI CRUD UNIT ---
+            addUnit() { 
+                this.productRows.push({ 
+                    unit_id: '', 
+                    price: '', 
+                    conversion: '', 
+                    is_base_unit: false, 
+                    wholesale: [],
+                    showWholesale: false
+                }); 
+                this.$nextTick(() => this.focusGrid(null, this.productRows.length - 1, 'unit_id')); 
+            },
+
+            removeUnit(index) { 
+                if (this.productRows.length <= 1) return; 
+                let wasBase = this.productRows[index].is_base_unit; 
+                this.productRows.splice(index, 1); 
+                if (wasBase) this.setBaseUnit(0); 
+            },
+
+            setBaseUnit(index) { 
+                this.productRows.forEach((row, i) => { 
+                    row.is_base_unit = (i === index); 
+                    if (i === index) row.conversion = 1; 
+                }); 
+                this.baseRowIndex = index; 
+                this.refreshUnitNames(); 
+            },
+
+            refreshUnitNames() { 
+                let baseRow = this.productRows[this.baseRowIndex]; 
+                if(baseRow && baseRow.unit_id) { 
+                    let u = this.masterUnits.find(m => m.id == baseRow.unit_id); 
+                    this.baseUnitName = u ? u.short_name : 'Pcs'; 
+                } else { 
+                    this.baseUnitName = 'Pcs'; 
+                } 
+            },
+
+            onUnitChange(index) { 
+                this.refreshUnitNames(); 
+            },
+
+            openCreateModal() { 
+                this.showCreateModal = true; 
+                this.form = { 
+                    id: null, 
+                    name: '', 
+                    kode_produk: '', 
+                    category_id: '', 
+                    status: 'active', 
+                    description: '', 
+                    foto_url: '' 
+                }; 
+                this.productRows = [{ 
+                    unit_id: '', 
+                    price: '', 
+                    conversion: 1, 
+                    is_base_unit: true, 
+                    wholesale: [],
+                    showWholesale: false
+                }]; 
+                this.baseRowIndex = 0; 
+                this.refreshUnitNames(); 
+            },
+
+            // --- FUNGSI LAINNYA ---
+            async toggleStatus(id) { 
+                try { 
+                    let currentStatus = this.statusCache[id]; 
+                    let newStatus = currentStatus === 'active' ? 'inactive' : 'active'; 
+                    this.statusCache[id] = newStatus; 
+                    const res = await fetch(`{{ url('admin/products') }}/${id}/toggle-status`, { 
+                        method: 'POST', 
+                        headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' } 
+                    }); 
+                    if(!res.ok) { 
+                        this.statusCache[id] = currentStatus; 
+                        alert('Gagal ubah status.'); 
+                    } 
+                } catch(e) { 
+                    console.error(e); 
+                } 
+            },
+
+            async saveNewCategory() { 
+                this.isSaving = true; 
+                this.categoryErrors = { name: '' }; 
+                this.globalCategoryError = ''; 
+                try { 
+                    const res = await fetch('{{ route('admin.categories.storeAjax') }}', { 
+                        method: 'POST', 
+                        headers: {
+                            'Content-Type': 'application/json', 
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        }, 
+                        body: JSON.stringify({ name: this.newCategoryName }) 
+                    }); 
+                    const data = await res.json(); 
+                    if (!res.ok) { 
+                        if(res.status===422) this.categoryErrors.name = data.errors.name?.[0] || ''; 
+                        else this.globalCategoryError = data.message || 'Gagal.'; 
+                    } else { 
+                        this.masterCategories.push(data); 
+                        this.form.category_id = data.id; 
+                        this.showCategoryModal = false; 
+                        this.newCategoryName = ''; 
+                    } 
+                } catch(e) { 
+                    this.globalCategoryError = 'Error jaringan'; 
+                } finally { 
+                    this.isSaving = false; 
+                } 
+            },
+
+            async saveNewUnit() { 
+                this.isSaving = true; 
+                this.unitErrors = { name: '', short_name: '' }; 
+                this.globalUnitError = ''; 
+                try { 
+                    const res = await fetch('{{ route('admin.units.storeAjax') }}', { 
+                        method: 'POST', 
+                        headers: {
+                            'Content-Type': 'application/json', 
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        }, 
+                        body: JSON.stringify({ 
+                            name: this.newUnitName, 
+                            short_name: this.newUnitShortName 
+                        }) 
+                    }); 
+                    const data = await res.json(); 
+                    if (!res.ok) { 
+                        if(res.status===422) { 
+                            this.unitErrors.name = data.errors.name?.[0] || ''; 
+                            this.unitErrors.short_name = data.errors.short_name?.[0] || ''; 
+                        } else this.globalUnitError = data.message || 'Gagal.'; 
+                    } else { 
+                        this.masterUnits.push(data); 
+                        this.showUnitModal = false; 
+                        this.newUnitName = ''; 
+                        this.newUnitShortName = ''; 
+                    } 
+                } catch(e) { 
+                    this.globalUnitError = 'Error jaringan'; 
+                } finally { 
+                    this.isSaving = false; 
+                } 
+            },
+
+            startEditCategory(cat) { 
+                this.editCategoryId = cat.id; 
+                this.editCategoryName = cat.name; 
+            }, 
+
+            cancelEditCategory() { 
+                this.editCategoryId = null; 
+            }, 
+
+            async saveEditCategory(id) { 
+                try { 
+                    const res = await fetch(`{{ url('admin/categories-ajax') }}/${id}`, { 
+                        method: 'PATCH', 
+                        headers: {
+                            'Content-Type': 'application/json', 
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        }, 
+                        body: JSON.stringify({ name: this.editCategoryName }) 
+                    }); 
+                    if(!res.ok) throw await res.json(); 
+                    await this.loadMasterData(); 
+                    this.cancelEditCategory(); 
+                } catch(e) { 
+                    alert('Gagal update.'); 
+                } 
+            }, 
+
+            async deleteCategory(id) { 
+                if(!confirm('Hapus?')) return; 
+                try { 
+                    const res = await fetch(`{{ url('admin/categories-ajax') }}/${id}`, { 
+                        method: 'DELETE', 
+                        headers: {'X-CSRF-TOKEN': '{{ csrf_token() }}'} 
+                    }); 
+                    if(!res.ok) throw await res.json(); 
+                    this.masterCategories = this.masterCategories.filter(c => c.id != id); 
+                } catch(e) { 
+                    alert(e.message || 'Gagal.'); 
+                } 
+            },
+
+            startEditUnit(u) { 
+                this.editUnitId = u.id; 
+                this.editUnitName = u.name; 
+                this.editUnitShortName = u.short_name; 
+            }, 
+
+            cancelEditUnit() { 
+                this.editUnitId = null; 
+            }, 
+
+            async saveEditUnit(id) { 
+                try { 
+                    const res = await fetch(`{{ url('admin/units-ajax') }}/${id}`, { 
+                        method: 'PATCH', 
+                        headers: {
+                            'Content-Type': 'application/json', 
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        }, 
+                        body: JSON.stringify({ 
+                            name: this.editUnitName, 
+                            short_name: this.editUnitShortName 
+                        }) 
+                    }); 
+                    if(!res.ok) throw await res.json(); 
+                    await this.loadMasterData(); 
+                    this.cancelEditUnit(); 
+                } catch(e) { 
+                    alert('Gagal update.'); 
+                } 
+            }, 
+
+            async deleteUnit(id) { 
+                if(!confirm('Hapus?')) return; 
+                try { 
+                    const res = await fetch(`{{ url('admin/units-ajax') }}/${id}`, { 
+                        method: 'DELETE', 
+                        headers: {'X-CSRF-TOKEN': '{{ csrf_token() }}'} 
+                    }); 
+                    if(!res.ok) throw await res.json(); 
+                    this.masterUnits = this.masterUnits.filter(u => u.id != id); 
+                } catch(e) { 
+                    alert(e.message || 'Gagal.'); 
+                } 
+            },
+
+            openDeleteModal(id, name) { 
+                this.deleteFormAction = `{{ url('admin/products') }}/${id}`; 
+                this.deleteProductName = name; 
+                this.showDeleteModal = true; 
+            }
         }
     }
 </script>

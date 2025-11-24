@@ -71,45 +71,80 @@
                     <input type="hidden" name="is_base_unit_index" :value="baseRowIndex">
 
                     <template x-for="(unit, index) in productRows" :key="index">
-                        <div class="grid grid-cols-12 gap-4 p-4 mb-2 border rounded-lg items-start">
-                            <div class="col-span-12 md:col-span-4">
-                                <label class="block text-sm font-medium text-gray-700">Satuan</label>
-                                <div class="flex items-center space-x-2">
-                                    <select :name="'units['+index+'][unit_id]'" x-model="unit.unit_id" @change="refreshUnitNames()" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm" required 
-                                            @keydown.enter.prevent="focusNext($event)"
-                                            @keydown.right.prevent="focusGrid($event, index, 'price')"
-                                            @keydown.down.prevent="focusGrid($event, index + 1, 'unit_id')"
-                                            @keydown.up.prevent="focusGrid($event, index - 1, 'unit_id')">
-                                        <option value="">-- Pilih --</option>
-                                        <template x-for="u in masterUnits" :key="u.id">
-                                            <option :value="u.id" :data-name="u.short_name" x-text="u.name + ' (' + u.short_name + ')'"></option>
-                                        </template>
-                                    </select>
-                                    <button type="button" tabindex="-1" @click="showUnitModal = true" class="p-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 mt-1">+</button>
+                        <!-- Bungkus dalam div agar layout rapi -->
+                        <div class="mb-3 border rounded-lg p-3 bg-white shadow-sm">
+                            <div class="grid grid-cols-12 gap-4 items-start">
+                                <!-- Satuan -->
+                                <div class="col-span-12 md:col-span-4">
+                                    <label class="block text-xs font-medium text-gray-500 mb-1">Satuan</label>
+                                    <div class="flex items-center space-x-2">
+                                        <select :name="'units['+index+'][unit_id]'" x-model="unit.unit_id" @change="refreshUnitNames()" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm" required 
+                                                @keydown.enter.prevent="focusNext($event)"
+                                                @keydown.right.prevent="focusGrid($event, index, 'price')"
+                                                @keydown.down.prevent="focusGrid($event, index + 1, 'unit_id')"
+                                                @keydown.up.prevent="focusGrid($event, index - 1, 'unit_id')">
+                                            <option value="">-- Pilih --</option>
+                                            <template x-for="u in masterUnits" :key="u.id">
+                                                <option :value="u.id" :data-name="u.short_name" x-text="u.name + ' (' + u.short_name + ')'"></option>
+                                            </template>
+                                        </select>
+                                        <button type="button" tabindex="-1" @click="showUnitModal = true" class="mt-1 p-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600">+</button>
+                                    </div>
+                                </div>
+                                
+                                <!-- Harga Jual Normal -->
+                                <div class="col-span-12 md:col-span-3">
+                                    <label class="block text-xs font-medium text-gray-500 mb-1">Harga Jual (Normal)</label>
+                                    <input type="number" :name="'units['+index+'][price]'" x-model="unit.price" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm" placeholder="0" required
+                                           @keydown.enter.prevent="focusNext($event)"
+                                           @keydown.left.prevent="focusGrid($event, index, 'unit_id')"
+                                           @keydown.right.prevent="focusGrid($event, index, 'conversion')"
+                                           @keydown.down.prevent="focusGrid($event, index + 1, 'price')"
+                                           @keydown.up.prevent="focusGrid($event, index - 1, 'price')">
+                                </div>
+                                
+                                <!-- Konversi -->
+                                <div class="col-span-12 md:col-span-2">
+                                    <label class="block text-xs font-medium text-gray-500 mb-1">Konversi</label>
+                                    <input type="number" :name="'units['+index+'][conversion]'" x-model="unit.conversion" :readonly="unit.is_base_unit" :class="{'bg-gray-100 text-gray-500 cursor-not-allowed': unit.is_base_unit}" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm" placeholder="1"
+                                           @keydown.enter.prevent="focusNext($event)"
+                                           @keydown.left.prevent="focusGrid($event, index, 'price')"
+                                           @keydown.down.prevent="focusGrid($event, index + 1, 'conversion')"
+                                           @keydown.up.prevent="focusGrid($event, index - 1, 'conversion')">
+                                    <p class="text-xs text-gray-500" x-show="!unit.is_base_unit">... <span x-text="baseUnitName"></span></p>
+                                    <p class="text-xs text-green-600 font-bold" x-show="unit.is_base_unit">Satuan Dasar</p>
+                                </div>
+                                
+                                <!-- Tombol Aksi -->
+                                <div class="col-span-12 md:col-span-3 flex items-center space-x-2 pt-6">
+                                    <button type="button" @click="setBaseUnit(index)" :class="unit.is_base_unit ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-600 border'" class="px-2 py-1 text-xs rounded-md font-bold">Dasar</button>
+                                    
+                                    <!-- [BARU] Tombol Toggle Grosir -->
+                                    <button type="button" @click="toggleWholesale(index)" class="px-2 py-1 text-xs rounded-md font-bold border" :class="unit.wholesale.length > 0 ? 'bg-blue-100 text-blue-700 border-blue-300' : 'bg-white text-gray-500 border-gray-300 hover:bg-gray-50'">
+                                        Grosir <span x-show="unit.wholesale.length > 0" x-text="'(' + unit.wholesale.length + ')'"></span>
+                                    </button>
+                                    
+                                    <button type="button" @click="removeUnit(index)" class="text-red-500 hover:text-red-700">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                        </svg>
+                                    </button>
                                 </div>
                             </div>
-                            <div class="col-span-12 md:col-span-3">
-                                <label class="block text-sm font-medium text-gray-700">Harga Jual</label>
-                                <input type="number" :name="'units['+index+'][price]'" x-model="unit.price" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" placeholder="0" required
-                                       @keydown.enter.prevent="focusNext($event)"
-                                       @keydown.left.prevent="focusGrid($event, index, 'unit_id')"
-                                       @keydown.right.prevent="focusGrid($event, index, 'conversion')"
-                                       @keydown.down.prevent="focusGrid($event, index + 1, 'price')"
-                                       @keydown.up.prevent="focusGrid($event, index - 1, 'price')">
-                            </div>
-                            <div class="col-span-12 md:col-span-2">
-                                <label class="block text-sm font-medium text-gray-700">Konversi</label>
-                                <input type="number" :name="'units['+index+'][conversion]'" x-model="unit.conversion" :readonly="unit.is_base_unit" :class="{'bg-gray-100 text-gray-500 cursor-not-allowed': unit.is_base_unit}" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" placeholder="1"
-                                       @keydown.enter.prevent="focusNext($event)"
-                                       @keydown.left.prevent="focusGrid($event, index, 'price')"
-                                       @keydown.down.prevent="focusGrid($event, index + 1, 'conversion')"
-                                       @keydown.up.prevent="focusGrid($event, index - 1, 'conversion')">
-                                <p class="text-xs text-gray-500" x-show="!unit.is_base_unit">... <span x-text="baseUnitName"></span></p>
-                                <p class="text-xs text-green-600 font-bold" x-show="unit.is_base_unit">Satuan Dasar</p>
-                            </div>
-                            <div class="col-span-12 md:col-span-3 flex items-center space-x-2 pt-7">
-                                <button type="button" @click="setBaseUnit(index)" :class="unit.is_base_unit ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border'" class="px-3 py-2 text-xs rounded-md">Dasar</button>
-                                <button type="button" @click="removeUnit(index)" class="px-3 py-2 text-xs rounded-md bg-red-600 text-white">Hapus</button>
+
+                            <!-- PANEL HARGA GROSIR -->
+                            <div x-show="unit.showWholesale" class="mt-3 p-3 bg-blue-50 rounded-md border border-blue-100">
+                                <div class="text-xs font-bold text-blue-700 mb-2">Aturan Harga Grosir (Beli Banyak Lebih Murah)</div>
+                                <template x-for="(rule, wIndex) in unit.wholesale" :key="wIndex">
+                                    <div class="flex gap-2 mb-2 items-center">
+                                        <span class="text-xs text-gray-500">Min. Beli</span>
+                                        <input type="number" :name="'units['+index+'][wholesale]['+wIndex+'][min_qty]'" x-model="rule.min_qty" class="w-20 border-blue-200 rounded text-sm" placeholder="Qty" min="2">
+                                        <span class="text-xs text-gray-500">Unit, Harga Jadi</span>
+                                        <input type="number" :name="'units['+index+'][wholesale]['+wIndex+'][price]'" x-model="rule.price" class="w-32 border-blue-200 rounded text-sm" placeholder="Harga" min="0">
+                                        <button type="button" @click="removeWholesale(index, wIndex)" class="text-red-500 hover:text-red-700 font-bold">x</button>
+                                    </div>
+                                </template>
+                                <button type="button" @click="addWholesale(index)" class="text-xs text-blue-600 hover:underline font-medium">+ Tambah Aturan Grosir</button>
                             </div>
                         </div>
                     </template>
