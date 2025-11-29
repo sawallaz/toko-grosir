@@ -14,21 +14,13 @@ return new class extends Migration
         Schema::create('transaction_details', function (Blueprint $table) {
             $table->id();
             
-            // Relasi ke transaksi
-            $table->foreignId('transaction_id')
-                  ->constrained('transactions')
-                  ->onDelete('cascade');
-
-            // PENTING: Relasi ke product_units
-            // Agar kita tahu dia beli produk itu dalam satuan apa (Dos/Pcs)
-            $table->foreignId('product_unit_id')
-                  ->constrained('product_units')
-                  ->onDelete('restrict'); // Jangan hapus data ini jika transaksi ada
-
-            $table->integer('quantity'); // Cth: 2 (Dos)
+            $table->foreignId('transaction_id')->constrained('transactions')->onDelete('cascade');
             
-            // Simpan harga saat pembelian (untuk arsip, jika harga produk berubah)
-            $table->decimal('price_at_purchase', 15, 2);
+            // Produk & Satuan apa yang dibeli
+            $table->foreignId('product_unit_id')->constrained('product_units')->onDelete('restrict');
+            
+            $table->integer('quantity');
+            $table->decimal('price_at_purchase', 15, 2); // Harga saat dibeli
             $table->decimal('subtotal', 15, 2);
             
             $table->timestamps();

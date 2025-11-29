@@ -11,29 +11,26 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // 1. Tabel Header Transaksi (Nota)
         Schema::create('transactions', function (Blueprint $table) {
             $table->id();
-            $table->string('invoice_number')->unique();
+            $table->string('invoice_number')->unique(); // Cth: INV-20231101-001
             
-            // Siapa kasir/admin yang proses
-            $table->foreignId('user_id')
-                  ->constrained('users')
-                  ->onDelete('restrict'); 
-
-            // Siapa customer-nya (jika terdaftar)
-            $table->foreignId('customer_id')
-                  ->nullable()
-                  ->constrained('users') // Relasi ke tabel users juga
-                  ->onDelete('set null');
-
+            // Kasir yang melayani
+            $table->foreignId('user_id')->constrained('users')->onDelete('restrict');
+            
+            // Pelanggan (Bisa kosong/Umum)
+            $table->foreignId('customer_id')->nullable()->constrained('customers')->onDelete('set null');
+            
+            // Keuangan
             $table->decimal('total_amount', 15, 2);
-            $table->string('payment_method')->default('cash');
+            $table->decimal('pay_amount', 15, 2)->default(0);     // [GABUNG SINI]
+            $table->decimal('change_amount', 15, 2)->default(0);  // [GABUNG SINI]
+            $table->integer('total_items')->default(0);           // [GABUNG SINI]
             
-            // 'pos' = Penjualan langsung, 'online' = Pesanan online
-            $table->enum('type', ['pos', 'online'])->default('pos');
-            
-            // 'completed' = Selesai, 'pending' = Menunggu (utk online)
-            $table->enum('status', ['completed', 'pending', 'cancelled'])->default('pending');
+            $table->string('payment_method')->default('cash'); 
+            $table->enum('type', ['pos', 'online'])->default('pos'); 
+            $table->enum('status', ['pending', 'completed', 'cancelled'])->default('completed');
             
             $table->timestamps();
         });

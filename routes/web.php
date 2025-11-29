@@ -6,28 +6,39 @@ use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\StockController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\UnitController;
+use App\Http\Controllers\Admin\CashierController;
+use App\Http\Controllers\Cashier\PosController;
 
 Route::get('/', function () {
     return view('welcome');
 })->name('home');
 
 Route::get('/dashboard', function () {
-    return redirect()->route('admin.dashboard');
+    // Redirect pintar berdasarkan role
+    $role = auth()->user()->role;
+    if($role === 'kasir') return redirect()->route('pos.index');
+    if($role === 'admin') return redirect()->route('admin.dashboard');
+    return view('dashboard'); // Fallback untuk customer
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 require __DIR__.'/auth.php';
 
-Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(function () {
+// ====================================================
+// GROUP 1: ADMIN (Hanya Admin yang Boleh Masuk)
+// ====================================================
+// [AMAN] Tambahkan middleware 'role:admin'
+Route::middleware(['auth', 'verified', 'role:admin'])->prefix('admin')->name('admin.')->group(function () {
     
-    Route::get('/dashboard', function () { return view('admin.dashboard'); })->name('dashboard');
+    Route::get('/dashboard', function () {
+        return view('admin.dashboard');
+    })->name('dashboard');
 
+    // 1. MANAJEMEN PRODUK
     Route::resource('products', ProductController::class)->except(['show']);
     Route::get('products/{product}/edit-json', [ProductController::class, 'editJson'])->name('products.editJson');
-    
-    // [BARU] Route untuk toggle status
     Route::post('products/{product}/toggle-status', [ProductController::class, 'toggleStatus'])->name('products.toggleStatus');
 
-    // AJAX Manajemen Cepat
+    // API Kategori & Satuan
     Route::get('categories-json', [CategoryController::class, 'indexJson'])->name('categories.json');
     Route::post('categories-ajax', [CategoryController::class, 'storeAjax'])->name('categories.storeAjax');
     Route::patch('categories-ajax/{category}', [CategoryController::class, 'updateAjax'])->name('categories.updateAjax');
@@ -37,22 +48,39 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::post('units-ajax', [UnitController::class, 'storeAjax'])->name('units.storeAjax');
     Route::patch('units-ajax/{unit}', [UnitController::class, 'updateAjax'])->name('units.updateAjax');
     Route::delete('units-ajax/{unit}', [UnitController::class, 'destroyAjax'])->name('units.destroyAjax');
-});
 
-
-Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(function () {
-    
-    // 1. Halaman Utama & Simpan Baru
+    // 2. MANAJEMEN STOK
     Route::get('/stok', [StockController::class, 'index'])->name('stok.index');
     Route::post('/stok', [StockController::class, 'store'])->name('stok.store');
-
-    // 2. API Helper (Pencarian & Tambah Supplier) - Taruh di atas {id} agar aman
+    Route::put('/stok/{id}', [StockController::class, 'update'])->name('stok.update');
+    Route::delete('/stok/{id}', [StockController::class, 'destroy'])->name('stok.destroy');
+    Route::get('/stok/{id}/edit-json', [StockController::class, 'editJson'])->name('stok.editJson');
     Route::get('/stok/search-product', [StockController::class, 'searchProduct'])->name('stok.searchProduct');
     Route::post('/stok/supplier-ajax', [StockController::class, 'storeSupplierAjax'])->name('stok.storeSupplierAjax');
 
-    // 3. Aksi pada Transaksi Tertentu (Edit & Hapus) - YANG KURANG TADI
-    Route::get('/stok/{id}/edit-json', [StockController::class, 'editJson'])->name('stok.editJson'); // Ambil data untuk modal edit
-    Route::put('/stok/{id}', [StockController::class, 'update'])->name('stok.update'); // Simpan perubahan edit
-    Route::delete('/stok/{id}', [StockController::class, 'destroy'])->name('stok.destroy'); // Hapus transaksi
+    // 3. MANAJEMEN KASIR
+    Route::resource('cashiers', CashierController::class)->except(['show', 'create', 'edit']);
+    Route::get('cashiers/{cashier}/edit-json', [CashierController::class, 'editJson'])->name('cashiers.edit-json');
+    Route::post('cashiers/{cashier}/toggle-status', [CashierController::class, 'toggleStatus'])->name('cashiers.toggle-status');
+});
 
+// ====================================================
+// GROUP 2: KASIR POS (Admin & Kasir Boleh Masuk)
+// ====================================================
+// [AMAN] Tambahkan middleware 'role:kasir,admin'. Customer DILARANG masuk sini.
+Route::middleware(['auth', 'verified', 'role:kasir,admin'])->group(function () {
+    
+    Route::get('/pos', [PosController::class, 'index'])->name('pos.index');
+    
+    // API POS
+    Route::get('/pos/search-product', [PosController::class, 'searchProduct'])->name('pos.search');
+    Route::get('/pos/search-customer', [PosController::class, 'searchCustomer'])->name('pos.customer.search');
+    Route::post('/pos/customer-ajax', [PosController::class, 'storeCustomerAjax'])->name('pos.customer.storeAjax');
+      Route::get('/pos/customer-list', [PosController::class, 'customerList'])->name('pos.customer.list'); // Get All
+    Route::patch('/pos/customer/{id}', [PosController::class, 'updateCustomer'])->name('pos.customer.update'); // Edit
+    Route::delete('/pos/customer/{id}', [PosController::class, 'destroyCustomer'])->name('pos.customer.destroy'); // Delete
+
+    Route::post('/pos/transaction', [PosController::class, 'store'])->name('pos.store');
+    Route::get('/pos/print/{invoice}', [PosController::class, 'printInvoice'])->name('pos.print');
+    Route::get('/pos/history-json', [PosController::class, 'historyJson'])->name('pos.history.json');
 });

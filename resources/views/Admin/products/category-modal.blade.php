@@ -51,8 +51,5 @@
             </table>
         </div>
 
-        <div class="flex justify-end p-3 bg-gray-50 border-t">
-            <button @click.prevent="showCategoryModal = false" class="px-4 py-2 bg-white border border-gray-300 rounded text-sm hover:bg-gray-50">Tutup</button>
-        </div>
     </div>
 </div>
