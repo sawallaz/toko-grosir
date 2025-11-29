@@ -172,24 +172,43 @@ class PosController extends Controller
         'pay_amount' => 'required|numeric',
     ]);
 
+    // Cek jika cart kosong
+    if (empty($request->cart)) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Keranjang tidak boleh kosong'
+        ], 422);
+    }
+
     DB::beginTransaction();
     try {
-        // GENERATE INVOICE NUMBER DI BACKEND
         $invoiceNumber = $this->generateInvoiceNumber();
 
-        // Hitung total items qty
+        // Hitung ulang total untuk memastikan consistency
+        $calculatedTotal = 0;
         $totalItems = 0;
-        foreach($request->cart as $item) { 
-            $totalItems += $item['qty']; 
+        
+        foreach($request->cart as $item) {
+            // Validasi setiap item
+            if (empty($item['product_unit_id']) || empty($item['qty']) || empty($item['price'])) {
+                throw new \Exception('Data item tidak valid');
+            }
+            $calculatedTotal += ($item['qty'] * $item['price']);
+            $totalItems += $item['qty'];
+        }
+
+        // Cross-check total amount
+        if (abs($calculatedTotal - $request->total_amount) > 1) { // Allow small floating point difference
+            throw new \Exception('Total amount tidak sesuai dengan perhitungan');
         }
 
         $trx = Transaction::create([
-            'invoice_number' => $invoiceNumber, // Pakai yang dari backend
+            'invoice_number' => $invoiceNumber,
             'user_id' => Auth::id(),
             'customer_id' => $request->customer_id,
-            'total_amount' => $request->total_amount,
+            'total_amount' => $calculatedTotal, // Use calculated total
             'pay_amount' => $request->pay_amount,
-            'change_amount' => $request->pay_amount - $request->total_amount,
+            'change_amount' => $request->pay_amount - $calculatedTotal,
             'total_items' => $totalItems,
             'payment_method' => $request->payment_method ?? 'cash',
             'type' => 'pos',
@@ -223,6 +242,8 @@ class PosController extends Controller
 
     } catch (\Exception $e) {
         DB::rollBack();
+        \Log::error('Transaction Error: ' . $e->getMessage());
+        
         return response()->json([
             'status' => 'error', 
             'message' => 'Terjadi kesalahan: ' . $e->getMessage()

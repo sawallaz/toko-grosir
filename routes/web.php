@@ -8,10 +8,12 @@ use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\UnitController;
 use App\Http\Controllers\Admin\CashierController;
 use App\Http\Controllers\Cashier\PosController;
+use App\Http\Controllers\Customer\CatalogController;
+use App\Http\Controllers\Customer\OrderController;
 
-Route::get('/', function () {
-    return view('welcome');
-})->name('home');
+// Halaman Depan (Bisa diakses siapa saja)
+Route::get('/', [CatalogController::class, 'index'])->name('home');
+Route::get('/product/{id}', [CatalogController::class, 'show'])->name('product.show');
 
 Route::get('/dashboard', function () {
     // Redirect pintar berdasarkan role
@@ -83,4 +85,18 @@ Route::middleware(['auth', 'verified', 'role:kasir,admin'])->group(function () {
     Route::post('/pos/transaction', [PosController::class, 'store'])->name('pos.store');
     Route::get('/pos/print/{invoice}', [PosController::class, 'printInvoice'])->name('pos.print');
     Route::get('/pos/history-json', [PosController::class, 'historyJson'])->name('pos.history.json');
+});
+
+// Halaman Perlu Login
+Route::middleware(['auth', 'verified'])->group(function () {
+    // Cart
+    Route::get('/cart', [OrderController::class, 'cart'])->name('cart.index');
+    Route::post('/cart/add', [OrderController::class, 'addToCart'])->name('cart.add');
+    Route::post('/cart/update/{id}', [OrderController::class, 'updateCart'])->name('cart.update');
+    Route::delete('/cart/remove/{id}', [OrderController::class, 'removeFromCart'])->name('cart.remove');
+    
+    // Checkout & Riwayat
+    Route::post('/checkout', [OrderController::class, 'checkout'])->name('checkout');
+    Route::get('/my-orders', [OrderController::class, 'index'])->name('orders.index');
+    Route::get('/my-orders/{id}', [OrderController::class, 'show'])->name('orders.show');
 });

@@ -14,23 +14,25 @@ return new class extends Migration
         // 1. Tabel Header Transaksi (Nota)
         Schema::create('transactions', function (Blueprint $table) {
             $table->id();
-            $table->string('invoice_number')->unique(); // Cth: INV-20231101-001
+            $table->string('invoice_number')->unique();
             
-            // Kasir yang melayani
-            $table->foreignId('user_id')->constrained('users')->onDelete('restrict');
+            // Kasir yang memproses (Bisa NULL jika pesanan online baru masuk)
+            $table->foreignId('user_id')->nullable()->constrained('users')->onDelete('restrict');
             
-            // Pelanggan (Bisa kosong/Umum)
+            // [BARU] Pembeli Online (User yang login di halaman customer)
+            $table->foreignId('buyer_id')->nullable()->constrained('users')->onDelete('set null');
+
+            // Data Member (Opsional, terhubung ke tabel customers)
             $table->foreignId('customer_id')->nullable()->constrained('customers')->onDelete('set null');
             
-            // Keuangan
             $table->decimal('total_amount', 15, 2);
-            $table->decimal('pay_amount', 15, 2)->default(0);     // [GABUNG SINI]
-            $table->decimal('change_amount', 15, 2)->default(0);  // [GABUNG SINI]
-            $table->integer('total_items')->default(0);           // [GABUNG SINI]
+            $table->decimal('pay_amount', 15, 2)->default(0);
+            $table->decimal('change_amount', 15, 2)->default(0);
+            $table->integer('total_items')->default(0);
             
             $table->string('payment_method')->default('cash'); 
             $table->enum('type', ['pos', 'online'])->default('pos'); 
-            $table->enum('status', ['pending', 'completed', 'cancelled'])->default('completed');
+            $table->enum('status', ['pending', 'process', 'completed', 'cancelled'])->default('completed');
             
             $table->timestamps();
         });

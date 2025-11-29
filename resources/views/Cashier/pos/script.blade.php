@@ -105,46 +105,54 @@ document.addEventListener('alpine:init', () => {
         },
 
         // KEYBOARD SHORTCUTS
-        setupKeyboardShortcuts() {
-            document.addEventListener('keydown', (e) => {
-                // F1 - Tab Sales
-                if(e.key === 'F1') { 
-                    e.preventDefault(); 
-                    this.switchTab('sales');
-                }
-                // F2 - Tab History
-                if(e.key === 'F2') { 
-                    e.preventDefault(); 
-                    this.switchTab('history');
-                }
+setupKeyboardShortcuts() {
+    let enterPressed = false; // Flag untuk prevent multiple Enter
+    
+    document.addEventListener('keydown', (e) => {
+        // F1 - Tab Sales
+        if(e.key === 'F1') { 
+            e.preventDefault(); 
+            this.switchTab('sales');
+        }
+        // F2 - Tab History
+        if(e.key === 'F2') { 
+            e.preventDefault(); 
+            this.switchTab('history');
+        }
 
-                // ESC - Reset customer search atau close modal
-                if(e.key === 'Escape') {
-                    if(this.showCustomerModal) {
-                        this.showCustomerModal = false;
-                    } else if(this.selectedCustomer) {
-                        this.resetCustomer();
-                    }
-                }
+        // ESC - Reset customer search atau close modal
+        if(e.key === 'Escape') {
+            if(this.showCustomerModal) {
+                this.showCustomerModal = false;
+            } else if(this.selectedCustomer) {
+                this.resetCustomer();
+            }
+        }
+        
+        // Enter untuk navigasi HANYA di dalam tabel
+        if(e.key === 'Enter' && this.tab === 'sales') {
+            const activeElement = document.activeElement;
+            const isInTable = activeElement.closest('tbody');
+            
+            if (isInTable && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'SELECT')) {
+                e.preventDefault();
+                this.focusNext(e);
+            }
+            
+            // Enter di input payAmount - PREVENT MULTIPLE
+            if (activeElement === document.querySelector('input[x-model="payAmount"]') && !enterPressed) {
+                e.preventDefault();
+                enterPressed = true; // Set flag
                 
-                // Enter untuk navigasi HANYA di dalam tabel
-                if(e.key === 'Enter' && this.tab === 'sales') {
-                    const activeElement = document.activeElement;
-                    const isInTable = activeElement.closest('tbody');
-                    
-                    if (isInTable && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'SELECT')) {
-                        e.preventDefault();
-                        this.focusNext(e);
-                    }
-                    
-                    // Enter di input payAmount langsung proses payment
-                    if (activeElement === document.querySelector('input[x-model="payAmount"]')) {
-                        e.preventDefault();
-                        this.processPayment();
-                    }
-                }
-            });
-        },
+                setTimeout(() => {
+                    enterPressed = false; // Reset flag setelah 1 detik
+                }, 1000);
+                
+                this.processPayment();
+            }
+        }
+    });
+},
 
 
         // --- NAVIGASI ENTER ---
@@ -413,72 +421,92 @@ document.addEventListener('alpine:init', () => {
 
         // --- PAYMENT PROCESSING ---
         async processPayment() {
-            // Validasi
-            let validCart = this.cart.filter(row => row.product_id && row.qty > 0);
-            if (validCart.length === 0) {
-                alert('Keranjang kosong! Tambahkan produk terlebih dahulu.');
-                return;
-            }
+        // PREVENT DOUBLE SUBMISSION
+        if (this.isProcessing) {
+            console.log('Transaction already in progress...');
+            return;
+        }
+        
+        // Validasi
+        let validCart = this.cart.filter(row => row.product_id && row.qty > 0);
+        if (validCart.length === 0) {
+            alert('Keranjang kosong! Tambahkan produk terlebih dahulu.');
+            return;
+        }
+        
+        if (Number(this.payAmount) < this.grandTotal) {
+            alert('Uang Kurang!');
+            return;
+        }
+        
+        // SET PROCESSING STATE
+        this.isProcessing = true;
+        
+        // DISABLE tombol Bayar secara visual
+        const payButton = document.querySelector('button[x-show="!isProcessing"]');
+        if (payButton) {
+            payButton.disabled = true;
+        }
+        
+        try {
+            const payload = {
+                cart: validCart.map(item => ({
+                    product_unit_id: item.product_unit_id,
+                    qty: item.qty,
+                    price: item.price
+                })),
+                total_amount: this.grandTotal,
+                pay_amount: this.payAmount,
+                customer_id: this.selectedCustomer?.id || null,
+                payment_method: 'cash'
+            };
             
-            if (Number(this.payAmount) < this.grandTotal) {
-                alert('Uang Kurang!');
-                return;
-            }
+            console.log('Sending transaction...', payload);
             
-            this.isProcessing = true;
+            const response = await fetch('{{ route("pos.store") }}', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json', 
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify(payload)
+            });
             
-            try {
-                const payload = {
-                    // JANGAN kirim invoice_number, biarkan backend yang generate
-                    cart: validCart.map(item => ({
-                        product_unit_id: item.product_unit_id,
-                        qty: item.qty,
-                        price: item.price
-                    })),
-                    total_amount: this.grandTotal,
-                    pay_amount: this.payAmount,
-                    customer_id: this.selectedCustomer?.id || null,
-                    payment_method: 'cash'
-                };
+            const data = await response.json();
+            console.log('Transaction response:', data);
+            
+            if(data.status === 'success') {
+                // Cetak struk
+                this.printReceipt(data.invoice_number);
                 
-                const response = await fetch('{{ route("pos.store") }}', {
-                    method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json', 
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                    },
-                    body: JSON.stringify(payload)
-                });
-                
-                const data = await response.json();
-                
-                if(data.status === 'success') {
-                    // UPDATE invoice number dari response backend
-                    this.invoiceNumber = data.invoice_number;
-                    
-                    // Cetak struk
-                    this.printReceipt(data.invoice_number);
-                    
-                    // Tampilkan info kembalian
-                    if(this.changeAmount >= 0) {
-                        alert('Transaksi berhasil!\nKembalian: ' + this.formatRupiah(this.changeAmount));
-                    }
-                    
-                    // Reset transaksi
-                    this.resetCart(true);
-                    
-                    // Refresh history
-                    this.loadHistory();
-                } else {
-                    alert(data.message || 'Terjadi kesalahan');
+                // Tampilkan info kembalian
+                if(this.changeAmount >= 0) {
+                    alert('Transaksi berhasil!\nKembalian: ' + this.formatRupiah(this.changeAmount));
                 }
-            } catch(error) {
-                console.error('Payment error:', error);
-                alert('Error sistem');
-            } finally {
-                this.isProcessing = false;
+                
+                // Reset transaksi
+                this.resetCart(true);
+                
+                // Refresh history
+                this.loadHistory();
+                
+            } else {
+                alert(data.message || 'Terjadi kesalahan');
             }
-        },
+        } catch(error) {
+            console.error('Payment error:', error);
+            alert('Error sistem: ' + error.message);
+        } finally {
+            // RESET PROCESSING STATE - PASTIKAN INI DIJALANKAN
+            this.isProcessing = false;
+            
+            // ENABLE tombol Bayar
+            const payButton = document.querySelector('button[x-show="!isProcessing"]');
+            if (payButton) {
+                payButton.disabled = false;
+            }
+        }
+    },
 
         // --- CUSTOMER MANAGEMENT (UPDATE DENGAN FITUR CRUD) ---
         async findCustomer() {
