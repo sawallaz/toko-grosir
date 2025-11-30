@@ -204,46 +204,262 @@
              </div>
         </div>
         
-        <!-- TAB 3: ONLINE (TABEL PESANAN MASUK) -->
-        <div x-show="tab === 'online'" class="h-full p-4 bg-gray-100" style="display: none;">
-             <div class="bg-white rounded-xl shadow border border-gray-200 h-full overflow-auto p-6">
-                 <h3 class="font-bold text-xl mb-4 text-indigo-700 flex items-center gap-2">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path></svg>
-                    Pesanan Online (Menunggu Diambil)
-                 </h3>
-                 <table class="w-full text-sm text-left border border-gray-200">
-                    <thead class="bg-indigo-50 text-indigo-800 font-bold">
-                        <tr>
-                            <th class="p-3 border-b">Invoice</th>
-                            <th class="p-3 border-b">Waktu Order</th>
-                            <th class="p-3 border-b">Pelanggan (User Online)</th>
-                            <th class="p-3 text-right border-b">Total Tagihan</th>
-                            <th class="p-3 text-center border-b">Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y">
-                        @forelse($onlineOrders as $o)
-                        <tr class="hover:bg-gray-50">
-                            <td class="p-3 font-mono font-bold text-indigo-600">{{ $o->invoice_number }}</td>
-                            <td class="p-3 text-gray-500">{{ $o->created_at->format('d/m/Y H:i') }}</td>
-                            <td class="p-3 font-bold">{{ $o->buyer ? $o->buyer->name : ($o->customer ? $o->customer->name : 'Guest') }}</td>
-                            <td class="p-3 text-right font-black text-gray-800">Rp {{ number_format($o->total_amount) }}</td>
-                            <td class="p-3 text-center">
-                                <button @click="viewOnlineOrder({{ $o->id }})" class="bg-green-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-green-700 shadow-md transition transform active:scale-95">
-                                    LIHAT & PROSES
-                                </button>
-                            </td>
-                        </tr>
-                        @empty
-                        <tr><td colspan="5" class="p-10 text-center text-gray-400">Belum ada pesanan online baru.</td></tr>
-                        @endforelse
-                    </tbody>
-                 </table>
-                 <div class="mt-4">{{ $onlineOrders->links() }}</div>
-             </div>
+        <!-- TAB 3: ONLINE (DENGAN MULTI STATUS) -->
+<div x-show="tab === 'online'" class="h-full p-4 bg-gray-100" style="display: none;">
+    <div class="bg-white rounded-xl shadow border border-gray-200 h-full overflow-auto p-6">
+        <h3 class="font-bold text-xl mb-4 text-indigo-700 flex items-center gap-2">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9-3-9m-9 9a9 9 0 019-9"></path>
+            </svg>
+            Pesanan Online
+        </h3>
+        
+        <!-- Tabs Status -->
+        <div class="flex border-b border-gray-200 mb-4">
+            <button @click="onlineOrderTab = 'pending'" 
+                    :class="onlineOrderTab === 'pending' ? 'border-b-2 border-yellow-500 text-yellow-600' : 'text-gray-500 hover:text-gray-700'"
+                    class="px-4 py-2 font-bold text-sm flex items-center gap-2">
+                <span class="w-3 h-3 bg-yellow-400 rounded-full"></span>
+                Menunggu
+                @if($pendingOrders->total() > 0)
+                <span class="bg-yellow-500 text-white text-xs px-2 py-1 rounded-full">{{ $pendingOrders->total() }}</span>
+                @endif
+            </button>
+            
+            <button @click="onlineOrderTab = 'process'" 
+                    :class="onlineOrderTab === 'process' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500 hover:text-gray-700'"
+                    class="px-4 py-2 font-bold text-sm flex items-center gap-2">
+                <span class="w-3 h-3 bg-blue-400 rounded-full"></span>
+                Diproses
+                @if($processOrders->total() > 0)
+                <span class="bg-blue-500 text-white text-xs px-2 py-1 rounded-full">{{ $processOrders->total() }}</span>
+                @endif
+            </button>
+
+            <button @click="onlineOrderTab = 'completed'" 
+                    :class="onlineOrderTab === 'completed' ? 'border-b-2 border-green-500 text-green-600' : 'text-gray-500 hover:text-gray-700'"
+                    class="px-4 py-2 font-bold text-sm flex items-center gap-2">
+                <span class="w-3 h-3 bg-green-400 rounded-full"></span>
+                Selesai
+                @if($completedOrders->total() > 0)
+                <span class="bg-green-500 text-white text-xs px-2 py-1 rounded-full">{{ $completedOrders->total() }}</span>
+                @endif
+            </button>
+
+            <button @click="onlineOrderTab = 'cancelled'" 
+                    :class="onlineOrderTab === 'cancelled' ? 'border-b-2 border-red-500 text-red-600' : 'text-gray-500 hover:text-gray-700'"
+                    class="px-4 py-2 font-bold text-sm flex items-center gap-2">
+                <span class="w-3 h-3 bg-red-400 rounded-full"></span>
+                Dibatalkan
+                @if($cancelledOrders->total() > 0)
+                <span class="bg-red-500 text-white text-xs px-2 py-1 rounded-full">{{ $cancelledOrders->total() }}</span>
+                @endif
+            </button>
         </div>
 
+        <!-- Tab Content -->
+        <div class="space-y-4">
+            <!-- PENDING ORDERS -->
+            <template x-if="onlineOrderTab === 'pending'">
+                <div>
+                    @forelse($pendingOrders as $order)
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-3">
+                        <div class="flex justify-between items-start">
+                            <div class="flex-1">
+                                <div class="flex items-center gap-3 mb-2">
+                                    <span class="font-mono font-bold text-yellow-700">{{ $order->invoice_number }}</span>
+                                    <span class="bg-yellow-500 text-white text-xs px-2 py-1 rounded-full">MENUNGGU</span>
+                                    @if($order->payment_method === 'rejected')
+                                    <span class="bg-red-500 text-white text-xs px-2 py-1 rounded-full">DITOLAK</span>
+                                    @endif
+                                </div>
+                                <div class="text-sm text-gray-600 mb-1">
+                                    <strong>Customer:</strong> {{ $order->buyer ? $order->buyer->name : ($order->customer ? $order->customer->name : 'Guest') }}
+                                </div>
+                                <div class="text-sm text-gray-600">
+                                    <strong>Waktu Order:</strong> {{ $order->created_at->format('d/m/Y H:i') }}
+                                </div>
+                                <div class="text-sm text-yellow-600 font-bold">
+                                    ⚠️ Customer masih bisa cancel pesanan ini
+                                </div>
+                                <div class="text-lg font-black text-gray-800 mt-2">
+                                    Rp {{ number_format($order->total_amount) }}
+                                </div>
+                            </div>
+                            <div class="flex gap-2 flex-col">
+                                <div class="flex gap-2">
+                                    <button @click="updateOrderStatus({{ $order->id }}, 'process')" 
+                                            class="bg-blue-600 text-white px-3 py-2 rounded text-xs font-bold hover:bg-blue-700">
+                                        PROSES
+                                    </button>
+                                    <button @click="viewOnlineOrder({{ $order->id }})" 
+                                            class="bg-green-600 text-white px-3 py-2 rounded text-xs font-bold hover:bg-green-700">
+                                        BAYAR
+                                    </button>
+                                </div>
+                                <button @click="rejectOrder({{ $order->id }})" 
+                                        class="bg-red-600 text-white px-3 py-2 rounded text-xs font-bold hover:bg-red-700">
+                                    TOLAK PESANAN
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    @empty
+                    <div class="text-center py-8 text-gray-400">
+                        Tidak ada pesanan menunggu
+                    </div>
+                    @endforelse
+                    <div class="mt-4">
+                        {{ $pendingOrders->links() }}
+                    </div>
+                </div>
+            </template>
+
+            <!-- PROCESS ORDERS -->
+            <template x-if="onlineOrderTab === 'process'">
+                <div>
+                    @forelse($processOrders as $order)
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-3">
+                        <div class="flex justify-between items-start">
+                            <div class="flex-1">
+                                <div class="flex items-center gap-3 mb-2">
+                                    <span class="font-mono font-bold text-blue-700">{{ $order->invoice_number }}</span>
+                                    <span class="bg-blue-500 text-white text-xs px-2 py-1 rounded-full">DIPROSES</span>
+                                </div>
+                                <div class="text-sm text-gray-600 mb-1">
+                                    <strong>Customer:</strong> {{ $order->buyer ? $order->buyer->name : ($order->customer ? $order->customer->name : 'Guest') }}
+                                </div>
+                                <div class="text-sm text-gray-600">
+                                    <strong>Waktu Order:</strong> {{ $order->created_at->format('d/m/Y H:i') }}
+                                </div>
+                                <div class="text-sm text-green-600 font-bold">
+                                    ✅ Customer TIDAK BISA cancel pesanan ini
+                                </div>
+                                <div class="text-lg font-black text-gray-800 mt-2">
+                                    Rp {{ number_format($order->total_amount) }}
+                                </div>
+                            </div>
+                            <div class="flex gap-2">
+                                <button @click="updateOrderStatus({{ $order->id }}, 'pending')" 
+                                        class="bg-yellow-600 text-white px-3 py-2 rounded text-xs font-bold hover:bg-yellow-700">
+                                        KEMBALI
+                                </button>
+                                <button @click="updateOrderStatus({{ $order->id }}, 'completed')" 
+                                        class="bg-green-600 text-white px-3 py-2 rounded text-xs font-bold hover:bg-green-700">
+                                        SIAP
+                                </button>
+                                <button @click="viewOnlineOrder({{ $order->id }})" 
+                                        class="bg-indigo-600 text-white px-3 py-2 rounded text-xs font-bold hover:bg-indigo-700">
+                                        BAYAR
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    @empty
+                    <div class="text-center py-8 text-gray-400">
+                        Tidak ada pesanan diproses
+                    </div>
+                    @endforelse
+                    <div class="mt-4">
+                        {{ $processOrders->links() }}
+                    </div>
+                </div>
+            </template>
+
+            <!-- COMPLETED ORDERS -->
+            <template x-if="onlineOrderTab === 'completed'">
+                <div>
+                    @forelse($completedOrders as $order)
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-3">
+                        <div class="flex justify-between items-start">
+                            <div class="flex-1">
+                                <div class="flex items-center gap-3 mb-2">
+                                    <span class="font-mono font-bold text-green-700">{{ $order->invoice_number }}</span>
+                                    <span class="bg-green-500 text-white text-xs px-2 py-1 rounded-full">SELESAI</span>
+                                </div>
+                                <div class="text-sm text-gray-600 mb-1">
+                                    <strong>Customer:</strong> {{ $order->buyer ? $order->buyer->name : ($order->customer ? $order->customer->name : 'Guest') }}
+                                </div>
+                                <div class="text-sm text-gray-600">
+                                    <strong>Kasir:</strong> {{ $order->user ? $order->user->name : '-' }}
+                                </div>
+                                <div class="text-sm text-gray-600">
+                                    <strong>Waktu Selesai:</strong> {{ $order->updated_at->format('d/m/Y H:i') }}
+                                </div>
+                                <div class="text-lg font-black text-gray-800 mt-2">
+                                    Rp {{ number_format($order->total_amount) }}
+                                </div>
+                            </div>
+                            <div class="flex gap-2">
+                                <button @click="printReceipt('{{ $order->invoice_number }}')" 
+                                        class="bg-blue-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-blue-700">
+                                    CETAK
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    @empty
+                    <div class="text-center py-8 text-gray-400">
+                        Tidak ada pesanan selesai
+                    </div>
+                    @endforelse
+                    <div class="mt-4">
+                        {{ $completedOrders->links() }}
+                    </div>
+                </div>
+            </template>
+
+            <!-- CANCELLED ORDERS -->
+            <template x-if="onlineOrderTab === 'cancelled'">
+                <div>
+                    @forelse($cancelledOrders as $order)
+                    <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-3">
+                        <div class="flex justify-between items-start">
+                            <div class="flex-1">
+                                <div class="flex items-center gap-3 mb-2">
+                                    <span class="font-mono font-bold text-red-700">{{ $order->invoice_number }}</span>
+                                    <span class="bg-red-500 text-white text-xs px-2 py-1 rounded-full">DIBATALKAN</span>
+                                    @if($order->payment_method === 'rejected')
+                                    <span class="bg-orange-500 text-white text-xs px-2 py-1 rounded-full">DITOLAK KASIR</span>
+                                    @else
+                                    <span class="bg-purple-500 text-white text-xs px-2 py-1 rounded-full">DIBATALKAN CUSTOMER</span>
+                                    @endif
+                                </div>
+                                <div class="text-sm text-gray-600 mb-1">
+                                    <strong>Customer:</strong> {{ $order->buyer ? $order->buyer->name : ($order->customer ? $order->customer->name : 'Guest') }}
+                                </div>
+                                <div class="text-sm text-gray-600">
+                                    <strong>Kasir:</strong> {{ $order->user ? $order->user->name : 'Customer' }}
+                                </div>
+                                <div class="text-sm text-gray-600">
+                                    <strong>Waktu Batal:</strong> {{ $order->updated_at->format('d/m/Y H:i') }}
+                                </div>
+                                <div class="text-lg font-black text-gray-800 mt-2">
+                                    Rp {{ number_format($order->total_amount) }}
+                                </div>
+                                <div class="text-sm text-red-600 font-bold mt-1">
+                                    @if($order->payment_method === 'rejected')
+                                    ❌ Pesanan ditolak oleh kasir
+                                    @else
+                                    ❌ Pesanan dibatalkan oleh customer
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    @empty
+                    <div class="text-center py-8 text-gray-400">
+                        Tidak ada pesanan dibatalkan
+                    </div>
+                    @endforelse
+                    <div class="mt-4">
+                        {{ $cancelledOrders->links() }}
+                    </div>
+                </div>
+            </template>
+        </div>
     </div>
+</div>
 
     <!-- [PERBAIKAN] MODAL DETAIL PESANAN ONLINE -->
 <div x-show="showOnlineDetailModal" 

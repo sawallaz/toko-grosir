@@ -20,14 +20,32 @@ class PosController extends Controller
         // Load data pendukung untuk filter kasir
         $cashiers = User::where('role', 'kasir')->orWhere('role', 'admin')->orderBy('name')->get();
 
-        // Load pesanan online (Pending)
-       $onlineOrders = Transaction::with(['customer', 'user', 'buyer'])
+        // Load pesanan online dengan status
+        $pendingOrders = Transaction::with(['customer', 'user', 'buyer'])
             ->where('type', 'online')
             ->where('status', 'pending')
             ->latest()
-            ->paginate(10, ['*'], 'online_page');
+            ->paginate(10, ['*'], 'pending_page');
 
-        return view('cashier.pos.index', compact('cashiers', 'onlineOrders'));
+        $processOrders = Transaction::with(['customer', 'user', 'buyer'])
+            ->where('type', 'online')
+            ->where('status', 'process')
+            ->latest()
+            ->paginate(10, ['*'], 'process_page');
+
+        $completedOrders = Transaction::with(['customer', 'user', 'buyer'])
+            ->where('type', 'online')
+            ->where('status', 'completed')
+            ->latest()
+            ->paginate(5, ['*'], 'completed_page');
+
+        $cancelledOrders = Transaction::with(['customer', 'user', 'buyer'])
+            ->where('type', 'online')
+            ->where('status', 'cancelled')
+            ->latest()
+            ->paginate(5, ['*'], 'cancelled_page');
+
+        return view('cashier.pos.index', compact('cashiers', 'pendingOrders', 'processOrders', 'completedOrders', 'cancelledOrders'));
     }
 
     // [BARU] Ambil Detail Pesanan Online untuk Modal
@@ -38,8 +56,85 @@ class PosController extends Controller
         return response()->json($trx);
     }
 
+     // [UPDATE] Update Status Pesanan Online - HANYA untuk kasir
+    public function updateOrderStatus(Request $request, $id)
+    {
+        DB::beginTransaction();
+        try {
+            $trx = Transaction::findOrFail($id);
+            
+            $request->validate([
+                'status' => 'required|in:process,completed' // Hanya proses dan completed untuk kasir
+            ]);
+            
+            // Kasir tidak bisa mengubah ke pending atau cancelled
+            // Hanya customer yang bisa cancel selama status pending
+            
+            $updateData = ['status' => $request->status];
+            
+            // Set user_id jika status completed
+            if($request->status === 'completed') {
+                $updateData['user_id'] = Auth::id();
+            }
+            
+            $trx->update($updateData);
+            
+            DB::commit();
+            
+            return response()->json([
+                'status' => 'success', 
+                'message' => 'Status pesanan berhasil diupdate',
+                'order_status' => $trx->status
+            ]);
+            
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'status' => 'error', 
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
 
-    // [BARU] Proses Pesanan (Terima)
+    // [BARU] Kasir bisa reject pesanan (hanya untuk pending)
+    public function rejectOrder(Request $request, $id)
+    {
+        DB::beginTransaction();
+        try {
+            $trx = Transaction::findOrFail($id);
+            
+            // Hanya pesanan pending yang bisa di-reject kasir
+            if ($trx->status !== 'pending') {
+                return response()->json([
+                    'status' => 'error', 
+                    'message' => 'Hanya pesanan pending yang bisa di-reject'
+                ], 400);
+            }
+            
+            $trx->update([
+                'status' => 'cancelled',
+                'user_id' => Auth::id(), // Kasir yang reject
+                'payment_method' => 'rejected' // Tandai sebagai ditolak kasir
+            ]);
+            
+            DB::commit();
+            
+            return response()->json([
+                'status' => 'success', 
+                'message' => 'Pesanan berhasil direject'
+            ]);
+            
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'status' => 'error', 
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+
+   
 // [BARU] Proses Pesanan (Terima) - LEBIH ROBUST
 public function processOnlineOrder(Request $request, $id)
 {

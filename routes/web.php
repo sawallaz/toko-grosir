@@ -97,8 +97,9 @@ Route::middleware(['auth', 'verified', 'role:kasir,admin'])->group(function () {
     
     Route::get('/pos/online-order/{id}', [PosController::class, 'onlineOrderDetail'])->name('pos.online.detail');
     Route::post('/pos/online-order/{id}/process', [PosController::class, 'processOnlineOrder'])->name('pos.online.process');
-    
+    Route::post('/pos/online-order/{id}/reject', [PosController::class, 'rejectOrder'])->name('pos.online.reject');
 });
+
 
 // Halaman Perlu Login
 Route::middleware(['auth', 'verified'])->group(function () {

@@ -825,6 +825,72 @@ async processOnlineOrder() {
         this.isProcessingOnline = false; 
     }
 },
+
+// [BARU] Reject Order (untuk kasir)
+    async rejectOrder(orderId) {
+        if (!confirm('Tolak pesanan ini? Pesanan akan dibatalkan dan customer akan mendapat notifikasi.')) return;
+
+        try {
+            const csrfToken = this.getCsrfToken();
+            const url = `/pos/online-order/${orderId}/reject`;
+            
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json', 
+                    'X-CSRF-TOKEN': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            
+            const data = await res.json();
+            
+            if(data.status === 'success') {
+                alert('Pesanan berhasil ditolak');
+                window.location.reload();
+            } else {
+                alert('Gagal: ' + data.message);
+            }
+        } catch(e) {
+            console.error('Reject order error:', e);
+            alert('Error sistem');
+        }
+    },
+
+    // [UPDATE] Update Order Status - hanya untuk process dan completed
+    async updateOrderStatus(orderId, newStatus) {
+        if (!confirm(`Ubah status pesanan menjadi ${newStatus.toUpperCase()}?`)) return;
+
+        try {
+            const csrfToken = this.getCsrfToken();
+            const url = `/pos/online-order/${orderId}/update-status`;
+            
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json', 
+                    'X-CSRF-TOKEN': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({
+                    status: newStatus
+                })
+            });
+            
+            const data = await res.json();
+            
+            if(data.status === 'success') {
+                alert('Status berhasil diupdate');
+                window.location.reload();
+            } else {
+                alert('Gagal: ' + data.message);
+            }
+        } catch(e) {
+            console.error('Update status error:', e);
+            alert('Error sistem');
+        }
+    },
+
         // --- UTILITIES ---
         printReceipt(invoiceNumber) {
             const printUrl = `{{ url('/pos/print') }}/${invoiceNumber}`;
