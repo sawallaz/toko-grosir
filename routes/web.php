@@ -16,11 +16,20 @@ Route::get('/', [CatalogController::class, 'index'])->name('home');
 Route::get('/product/{id}', [CatalogController::class, 'show'])->name('product.show');
 
 Route::get('/dashboard', function () {
-    // Redirect pintar berdasarkan role
-    $role = auth()->user()->role;
-    if($role === 'kasir') return redirect()->route('pos.index');
-    if($role === 'admin') return redirect()->route('admin.dashboard');
-    return view('dashboard'); // Fallback untuk customer
+    $user = auth()->user();
+    $role = $user->role;
+    
+    switch($role) {
+        case 'kasir':
+            return redirect()->route('pos.index');
+        case 'admin':
+            return redirect()->route('admin.dashboard');
+        case 'customer':
+            return redirect()->route('home'); // atau home
+        default:
+            return redirect('/');
+    }
+    
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 require __DIR__.'/auth.php';
@@ -85,6 +94,10 @@ Route::middleware(['auth', 'verified', 'role:kasir,admin'])->group(function () {
     Route::post('/pos/transaction', [PosController::class, 'store'])->name('pos.store');
     Route::get('/pos/print/{invoice}', [PosController::class, 'printInvoice'])->name('pos.print');
     Route::get('/pos/history-json', [PosController::class, 'historyJson'])->name('pos.history.json');
+    
+    Route::get('/pos/online-order/{id}', [PosController::class, 'onlineOrderDetail'])->name('pos.online.detail');
+    Route::post('/pos/online-order/{id}/process', [PosController::class, 'processOnlineOrder'])->name('pos.online.process');
+    
 });
 
 // Halaman Perlu Login
@@ -99,4 +112,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/checkout', [OrderController::class, 'checkout'])->name('checkout');
     Route::get('/my-orders', [OrderController::class, 'index'])->name('orders.index');
     Route::get('/my-orders/{id}', [OrderController::class, 'show'])->name('orders.show');
+
+     // Profile Routes
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });

@@ -4,6 +4,12 @@ document.addEventListener('alpine:init', () => {
         // STATE AWAL
         tab: 'sales',
         invoiceNumber: 'INV-' + Date.now().toString().slice(-8),
+
+        // Online Order
+            showOnlineDetailModal: false,
+            onlineOrder: null,
+            isProcessingOnline: false,
+
         
         // WAKTU REAL-TIME
         currentDate: '',
@@ -71,6 +77,22 @@ document.addEventListener('alpine:init', () => {
             if (this.tab === 'history') {
                 this.loadHistory();
             }
+        },
+
+         focusFirstInput() {
+            this.$nextTick(() => {
+                const firstInput = document.querySelector('input[placeholder="Scan / Ketik..."]');
+                if (firstInput) {
+                    firstInput.focus();
+                }
+            });
+        },
+
+        // Helper function untuk get CSRF token
+        getCsrfToken() {
+            return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || 
+                   document.querySelector('input[name="_token"]')?.value ||
+                   '{{ csrf_token() }}';
         },
 
         // Waktu real-time
@@ -298,6 +320,7 @@ setupKeyboardShortcuts() {
     };
     
     this.cart.push(newRow);
+    
     
     this.$nextTick(() => {
         // Focus ke input product di baris baru
@@ -673,6 +696,7 @@ setupKeyboardShortcuts() {
             this.customerFeedback = '';
         },
 
+
         // --- HISTORY MANAGEMENT ---
         async loadHistory() {
             try {
@@ -693,24 +717,124 @@ setupKeyboardShortcuts() {
             }
         },
 
+         // --- ONLINE ORDER LOGIC ---
+// --- ONLINE ORDER LOGIC ---
+async viewOnlineOrder(id) {
+    try {
+        const csrfToken = this.getCsrfToken();
+        
+        // ✅ GUNAKAN URL YANG BENAR SESUAI ROUTES
+        const url = `/pos/online-order/${id}`;
+        
+        console.log('Fetching order from:', url);
+        
+        const res = await fetch(url, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': csrfToken
+            }
+        }); 
+        
+        if (!res.ok) {
+            throw new Error(`HTTP ${res.status} - ${res.statusText}`);
+        }
+        
+        const data = await res.json();
+        this.onlineOrder = data;
+        this.onlinePayAmount = data.total_amount ? data.total_amount.toString() : '0';
+        this.showOnlineDetailModal = true;
+        this.isProcessingOnline = false;
+        
+    } catch (e) { 
+        console.error('Error loading order:', e);
+        alert('Gagal memuat detail pesanan: ' + e.message); 
+    }
+},
+
+// Hitung Kembalian Online
+            get onlineChangeAmount() {
+                if (!this.onlineOrder) return 0;
+                let pay = Number(this.onlinePayAmount) || 0;
+                let total = Number(this.onlineOrder.total_amount) || 0;
+                return pay - total;
+            },
+            
+async processOnlineOrder() {
+    // Validasi
+    if (this.onlineChangeAmount < 0) {
+        alert('Uang Pembayaran Kurang!');
+        return;
+    }
+    
+    if (!confirm('Pastikan uang sudah diterima dan barang sudah siap. Lanjutkan?')) return;
+
+    this.isProcessingOnline = true;
+    
+    try {
+        const csrfToken = this.getCsrfToken();
+        
+        // ✅ GUNAKAN URL YANG BENAR SESUAI ROUTES
+        const url = `/pos/online-order/${this.onlineOrder.id}/process`;
+        
+        console.log('Processing to:', url);
+        
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json', 
+                'X-CSRF-TOKEN': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+                pay_amount: parseFloat(this.onlinePayAmount),
+                change_amount: this.onlineChangeAmount
+            })
+        });
+        
+        if (!res.ok) {
+            throw new Error(`HTTP ${res.status} - ${res.statusText}`);
+        }
+        
+        const data = await res.json();
+        
+        if(data.status === 'success') {
+            // Cetak struk
+            const invoiceToPrint = data.invoice_number || this.onlineOrder.invoice_number;
+            this.printReceipt(invoiceToPrint);
+            
+            // Tampilkan success message
+            alert('Pesanan online berhasil diproses!\nKembalian: ' + this.formatRupiah(this.onlineChangeAmount));
+            
+            // Tutup modal dan refresh
+            this.showOnlineDetailModal = false;
+            
+            // Refresh halaman setelah delay singkat
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+            
+        } else { 
+            throw new Error(data.message || 'Unknown server error'); 
+        }
+    } catch(e) { 
+        console.error('Process online error:', e);
+        alert('Error: ' + e.message); 
+    } finally { 
+        this.isProcessingOnline = false; 
+    }
+},
         // --- UTILITIES ---
         printReceipt(invoiceNumber) {
             const printUrl = `{{ url('/pos/print') }}/${invoiceNumber}`;
             window.open(printUrl, '_blank', 'width=400,height=600');
         },
         
-        // Tambahkan di dalam Alpine.data('posSystem', () => ({
-        logout() {
-            if(confirm('Yakin ingin logout?')) {
-                window.location.href = '{{ route("logout") }}';
-            }
-        },
         
         formatRupiah(amount) {
             return new Intl.NumberFormat('id-ID').format(amount);
         }
-
-
 
     }));
 });

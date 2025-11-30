@@ -12,6 +12,7 @@ class Transaction extends Model
     protected $fillable = [
         'invoice_number',
         'user_id',
+        'buyer_id', 
         'customer_id',
         'total_amount',
         'pay_amount',       // [BARU]
@@ -22,7 +23,12 @@ class Transaction extends Model
         'status',
     ];
 
-    public function user() { return $this->belongsTo(User::class); }
+    public function user() { return $this->belongsTo(User::class, 'user_id'); }
+    
+    // [BARU] Relasi ke Pembeli Online
+    public function buyer() { return $this->belongsTo(User::class, 'buyer_id'); }
+    
     public function customer() { return $this->belongsTo(Customer::class); }
+    
     public function details() { return $this->hasMany(TransactionDetail::class); }
 }

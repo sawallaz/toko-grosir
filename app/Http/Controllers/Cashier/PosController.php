@@ -21,7 +21,7 @@ class PosController extends Controller
         $cashiers = User::where('role', 'kasir')->orWhere('role', 'admin')->orderBy('name')->get();
 
         // Load pesanan online (Pending)
-        $onlineOrders = Transaction::with(['customer', 'user'])
+       $onlineOrders = Transaction::with(['customer', 'user', 'buyer'])
             ->where('type', 'online')
             ->where('status', 'pending')
             ->latest()
@@ -30,6 +30,66 @@ class PosController extends Controller
         return view('cashier.pos.index', compact('cashiers', 'onlineOrders'));
     }
 
+    // [BARU] Ambil Detail Pesanan Online untuk Modal
+    public function onlineOrderDetail($id)
+    {
+        $trx = Transaction::with(['details.productUnit.product', 'details.productUnit.unit', 'buyer', 'customer'])
+            ->findOrFail($id);
+        return response()->json($trx);
+    }
+
+
+    // [BARU] Proses Pesanan (Terima)
+// [BARU] Proses Pesanan (Terima) - LEBIH ROBUST
+public function processOnlineOrder(Request $request, $id)
+{
+    DB::beginTransaction();
+    try {
+        $trx = Transaction::with(['details'])->findOrFail($id);
+        
+        // Validasi status
+        if ($trx->status !== 'pending') {
+            return response()->json([
+                'status' => 'error', 
+                'message' => 'Pesanan sudah diproses sebelumnya'
+            ], 400);
+        }
+        
+        // Validasi pembayaran
+        if ($request->pay_amount < $trx->total_amount) {
+            return response()->json([
+                'status' => 'error', 
+                'message' => 'Jumlah pembayaran kurang dari total tagihan'
+            ], 400);
+        }
+        
+        // Update Status & Info Pembayaran
+        $trx->update([
+            'status' => 'completed',
+            'user_id' => Auth::id(), // Kasir yang memproses
+            'pay_amount' => $request->pay_amount,
+            'change_amount' => $request->change_amount,
+            'payment_method' => 'cash',
+            'processed_at' => now()
+        ]);
+        
+        DB::commit();
+        
+        return response()->json([
+            'status' => 'success', 
+            'message' => 'Pesanan online berhasil diselesaikan',
+            'invoice_number' => $trx->invoice_number
+        ]);
+        
+    } catch (\Exception $e) {
+        DB::rollBack();
+        \Log::error('Process Online Order Error: ' . $e->getMessage());
+        return response()->json([
+            'status' => 'error', 
+            'message' => 'Terjadi kesalahan sistem: ' . $e->getMessage()
+        ], 500);
+    }
+}
     // API Riwayat dengan Filter
     public function historyJson(Request $request)
     {
