@@ -17,38 +17,56 @@ class PosController extends Controller
 {
     public function index()
     {
-        // Load data pendukung untuk filter kasir
+        // Ambil invoice terakhir untuk hari ini
+        $lastTransaction = Transaction::whereDate('created_at', today())
+            ->latest()
+            ->first();
+        
+        $lastInvoiceNumber = $lastTransaction ? $lastTransaction->invoice_number : '';
+        
+        // Load data kasir untuk filter
         $cashiers = User::where('role', 'kasir')->orWhere('role', 'admin')->orderBy('name')->get();
 
-        // Load pesanan online dengan status
-        $pendingOrders = Transaction::with(['customer', 'user', 'buyer'])
-            ->where('type', 'online')
+        // Hitung pesanan pending untuk badge di sidebar
+        $pendingCount = Transaction::where('type', 'online')
             ->where('status', 'pending')
-            ->latest()
-            ->paginate(10, ['*'], 'pending_page');
+            ->count();
 
-        $processOrders = Transaction::with(['customer', 'user', 'buyer'])
-            ->where('type', 'online')
-            ->where('status', 'process')
-            ->latest()
-            ->paginate(10, ['*'], 'process_page');
-
-        $completedOrders = Transaction::with(['customer', 'user', 'buyer'])
-            ->where('type', 'online')
-            ->where('status', 'completed')
-            ->latest()
-            ->paginate(5, ['*'], 'completed_page');
-
-        $cancelledOrders = Transaction::with(['customer', 'user', 'buyer'])
-            ->where('type', 'online')
-            ->where('status', 'cancelled')
-            ->latest()
-            ->paginate(5, ['*'], 'cancelled_page');
-
-        return view('cashier.pos.index', compact('cashiers', 'pendingOrders', 'processOrders', 'completedOrders', 'cancelledOrders'));
+        return view('cashier.pos.index', compact(
+            'lastInvoiceNumber',
+            'cashiers',
+            'pendingCount'
+        ));
     }
 
-    // [BARU] Ambil Detail Pesanan Online untuk Modal
+    // Method untuk mengambil pesanan online berdasarkan status
+    public function onlineOrdersJson(Request $request)
+    {
+        // Hanya tampilkan pending, process, ready
+        $query = Transaction::with(['customer', 'user', 'buyer', 'details'])
+            ->where('type', 'online')
+            ->whereIn('status', ['pending', 'process', 'ready'])
+            ->latest();
+        
+        // Filter pencarian
+        if ($search = $request->q) {
+            $query->where(function($q) use ($search) {
+                $q->where('invoice_number', 'like', "%{$search}%")
+                  ->orWhereHas('customer', function($c) use ($search) {
+                      $c->where('name', 'like', "%{$search}%");
+                  })
+                  ->orWhereHas('buyer', function($b) use ($search) {
+                      $b->where('name', 'like', "%{$search}%");
+                  });
+            });
+        }
+        
+        $orders = $query->paginate(20);
+        
+        return response()->json($orders);
+    }
+
+    // Ambil Detail Pesanan Online
     public function onlineOrderDetail($id)
     {
         $trx = Transaction::with(['details.productUnit.product', 'details.productUnit.unit', 'buyer', 'customer'])
@@ -56,21 +74,46 @@ class PosController extends Controller
         return response()->json($trx);
     }
 
-     // [UPDATE] Update Status Pesanan Online - HANYA untuk kasir
+    // Update Status Pesanan Online
     public function updateOrderStatus(Request $request, $id)
     {
         DB::beginTransaction();
         try {
-            $trx = Transaction::findOrFail($id);
+            $trx = Transaction::with('details.productUnit')->findOrFail($id);
             
             $request->validate([
-                'status' => 'required|in:process,completed' // Hanya proses dan completed untuk kasir
+                'status' => 'required|in:process,ready,completed'
             ]);
             
-            // Kasir tidak bisa mengubah ke pending atau cancelled
-            // Hanya customer yang bisa cancel selama status pending
-            
+            $previousStatus = $trx->status;
             $updateData = ['status' => $request->status];
+            
+            // Jika status berubah dari pending ke process, KURANGI STOK
+            if ($previousStatus === 'pending' && $request->status === 'process') {
+                foreach($trx->details as $detail) {
+                    $pu = $detail->productUnit;
+                    if($pu) {
+                        $qtyBase = $detail->quantity * $pu->conversion_to_base;
+                        $pu->product()->decrement('stock_in_base_unit', $qtyBase);
+                    }
+                }
+            }
+            
+            // Jika status berubah dari process ke pending, TAMBAH KEMBALI STOK
+            if ($previousStatus === 'process' && $request->status === 'pending') {
+                foreach($trx->details as $detail) {
+                    $pu = $detail->productUnit;
+                    if($pu) {
+                        $qtyBase = $detail->quantity * $pu->conversion_to_base;
+                        $pu->product()->increment('stock_in_base_unit', $qtyBase);
+                    }
+                }
+            }
+            
+            // Set timestamp untuk ready
+            if ($request->status === 'ready') {
+                $updateData['ready_at'] = now();
+            }
             
             // Set user_id jika status completed
             if($request->status === 'completed') {
@@ -96,14 +139,13 @@ class PosController extends Controller
         }
     }
 
-    // [BARU] Kasir bisa reject pesanan (hanya untuk pending)
+    // Kasir bisa reject pesanan
     public function rejectOrder(Request $request, $id)
     {
         DB::beginTransaction();
         try {
             $trx = Transaction::findOrFail($id);
             
-            // Hanya pesanan pending yang bisa di-reject kasir
             if ($trx->status !== 'pending') {
                 return response()->json([
                     'status' => 'error', 
@@ -113,8 +155,8 @@ class PosController extends Controller
             
             $trx->update([
                 'status' => 'cancelled',
-                'user_id' => Auth::id(), // Kasir yang reject
-                'payment_method' => 'rejected' // Tandai sebagai ditolak kasir
+                'user_id' => Auth::id(),
+                'payment_method' => 'rejected'
             ]);
             
             DB::commit();
@@ -133,93 +175,116 @@ class PosController extends Controller
         }
     }
 
-
-   
-// [BARU] Proses Pesanan (Terima) - LEBIH ROBUST
-public function processOnlineOrder(Request $request, $id)
-{
-    DB::beginTransaction();
-    try {
-        $trx = Transaction::with(['details'])->findOrFail($id);
-        
-        // Validasi status
-        if ($trx->status !== 'pending') {
-            return response()->json([
-                'status' => 'error', 
-                'message' => 'Pesanan sudah diproses sebelumnya'
-            ], 400);
-        }
-        
-        // Validasi pembayaran
-        if ($request->pay_amount < $trx->total_amount) {
-            return response()->json([
-                'status' => 'error', 
-                'message' => 'Jumlah pembayaran kurang dari total tagihan'
-            ], 400);
-        }
-        
-        // Update Status & Info Pembayaran
-        $trx->update([
-            'status' => 'completed',
-            'user_id' => Auth::id(), // Kasir yang memproses
-            'pay_amount' => $request->pay_amount,
-            'change_amount' => $request->change_amount,
-            'payment_method' => 'cash',
-            'processed_at' => now()
-        ]);
-        
-        DB::commit();
-        
-        return response()->json([
-            'status' => 'success', 
-            'message' => 'Pesanan online berhasil diselesaikan',
-            'invoice_number' => $trx->invoice_number
-        ]);
-        
-    } catch (\Exception $e) {
-        DB::rollBack();
-        \Log::error('Process Online Order Error: ' . $e->getMessage());
-        return response()->json([
-            'status' => 'error', 
-            'message' => 'Terjadi kesalahan sistem: ' . $e->getMessage()
-        ], 500);
-    }
-}
-    // API Riwayat dengan Filter
-    public function historyJson(Request $request)
+    // Method untuk proses pesanan online
+    public function processOnlineOrder(Request $request, $id)
     {
-        $query = Transaction::with(['customer', 'user'])
-            ->where('type', 'pos')
-            ->latest();
-
-        // 1. Filter Kasir (User ID)
-        if ($request->user_id) {
-            $query->where('user_id', $request->user_id);
-        }
-
-        // 2. Filter Pencarian (Invoice / Pelanggan)
-        if ($search = $request->q) {
-            $query->where(function($q) use ($search) {
-                $q->where('invoice_number', 'like', "%{$search}%")
-                  ->orWhereHas('customer', function($c) use ($search) {
-                      $c->where('name', 'like', "%{$search}%");
-                  });
-            });
-        }
-
-        // 3. Filter Tanggal (opsional, default hari ini)
-        if ($request->start_date && $request->end_date) {
-            $query->whereBetween('created_at', [
-                $request->start_date . ' 00:00:00', 
-                $request->end_date . ' 23:59:59'
+        DB::beginTransaction();
+        try {
+            $trx = Transaction::with(['details'])->findOrFail($id);
+            
+            if (!in_array($trx->status, ['pending', 'process', 'ready'])) {
+                return response()->json([
+                    'status' => 'error', 
+                    'message' => 'Pesanan tidak dapat diproses'
+                ], 400);
+            }
+            
+            if ($request->pay_amount < $trx->total_amount) {
+                return response()->json([
+                    'status' => 'error', 
+                    'message' => 'Jumlah pembayaran kurang dari total tagihan'
+                ], 400);
+            }
+            
+            // Update Status & Info Pembayaran
+            $trx->update([
+                'status' => 'completed',
+                'user_id' => Auth::id(),
+                'pay_amount' => $request->pay_amount,
+                'change_amount' => $request->change_amount,
+                'payment_method' => 'cash',
+                'processed_at' => now()
             ]);
-        } else {
-            // Default: tampilkan semua tanpa filter tanggal
+            
+            DB::commit();
+            
+            return response()->json([
+                'status' => 'success', 
+                'message' => 'Pesanan online berhasil diselesaikan',
+                'invoice_number' => $trx->invoice_number
+            ]);
+            
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Process Online Order Error: ' . $e->getMessage());
+            return response()->json([
+                'status' => 'error', 
+                'message' => 'Terjadi kesalahan sistem: ' . $e->getMessage()
+            ], 500);
         }
-
-        return response()->json($query->paginate(10));
     }
 
+    public function historyJson(Request $request)
+{
+    $query = Transaction::with([
+        'customer:id,name,phone', // Ambil hanya kolom yang diperlukan
+        'buyer:id,name,email',    // Ambil hanya kolom yang diperlukan  
+        'user:id,name'
+    ])
+    ->where('status', 'completed')
+    ->latest();
+
+    // Filter Kasir
+    if ($request->user_id) {
+        $query->where('user_id', $request->user_id);
+    }
+
+    // Filter Pencarian
+    if ($search = $request->q) {
+        $query->where(function($q) use ($search) {
+            $q->where('invoice_number', 'like', "%{$search}%")
+            ->orWhereHas('customer', function($c) use ($search) {
+                $c->where('name', 'like', "%{$search}%")
+                  ->orWhere('phone', 'like', "%{$search}%");
+            })
+            ->orWhereHas('buyer', function($b) use ($search) {
+                $b->where('name', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%");
+            });
+        });
+    }
+
+    // Filter Tanggal
+    if ($request->start_date && $request->end_date) {
+        $query->whereBetween('created_at', [
+            $request->start_date . ' 00:00:00', 
+            $request->end_date . ' 23:59:59'
+        ]);
+    }
+
+    $transactions = $query->paginate(15);
+    
+    // Format response
+    return response()->json([
+        'data' => $transactions->map(function($trx) {
+            return [
+                'id' => $trx->id,
+                'invoice_number' => $trx->invoice_number,
+                'created_at' => $trx->created_at,
+                'total_amount' => $trx->total_amount,
+                // Kirim data customer lengkap (object bukan array)
+                'customer' => $trx->customer,
+                // Kirim data buyer lengkap  
+                'buyer' => $trx->buyer,
+                'user' => $trx->user
+            ];
+        }),
+        'current_page' => $transactions->currentPage(),
+        'total' => $transactions->total()
+    ]);
+}
+
+    // SEARCH PRODUCT
     public function searchProduct(Request $request)
     {
         $q = $request->q;
@@ -229,32 +294,52 @@ public function processOnlineOrder(Request $request, $id)
             ->where('status', 'active')
             ->where(function($query) use ($q) {
                 $query->where('name', 'like', "%{$q}%")
-                      ->orWhere('kode_produk', 'like', "{$q}%");
+                      ->orWhere('kode_produk', 'like', "%{$q}%");
             })
-            ->limit(15)->get();
+            ->limit(10)
+            ->get();
 
         $results = $products->map(function($product) {
+            // Filter hanya unit yang memiliki stok
+            $availableUnits = $product->units->filter(function($unit) use ($product) {
+                $stockInBase = $product->stock_in_base_unit;
+                $unitStock = floor($stockInBase / $unit->conversion_to_base);
+                return $unitStock > 0;
+            })->values();
+
+            // Jika tidak ada unit dengan stok, skip produk ini
+            if ($availableUnits->isEmpty()) {
+                return null;
+            }
+
             return [
                 'id' => $product->id,
                 'name' => $product->name,
                 'kode_produk' => $product->kode_produk,
                 'category' => $product->category->name ?? '-',
-                'image' => $product->foto_produk,
-                'stock' => $product->stock_in_base_unit,
-                'units' => $product->units->map(fn($pu) => [
-                    'product_unit_id' => $pu->id,
-                    'unit_name' => $pu->unit->name,
-                    'unit_short_name' => $pu->unit->short_name,
-                    'price' => $pu->price,
-                    'conversion' => $pu->conversion_to_base,
-                    'is_base' => $pu->is_base_unit,
-                    'wholesale' => $pu->wholesalePrices->map(fn($w) => [
-                        'min' => $w->min_qty,
-                        'price' => $w->price
-                    ])
-                ])
+                'stock_total' => $product->stock_in_base_unit,
+                'units' => $availableUnits->map(function($pu) use ($product) {
+                    $stockInBase = $product->stock_in_base_unit;
+                    $unitStock = floor($stockInBase / $pu->conversion_to_base);
+                    
+                    return [
+                        'product_unit_id' => $pu->id,
+                        'unit_name' => $pu->unit->name,
+                        'unit_short_name' => $pu->unit->short_name,
+                        'price' => $pu->price,
+                        'conversion' => $pu->conversion_to_base,
+                        'is_base' => $pu->is_base_unit,
+                        'stock_ready' => $unitStock,
+                        'wholesale' => $pu->wholesalePrices->map(function($w) {
+                            return [
+                                'min' => $w->min_qty,
+                                'price' => $w->price
+                            ];
+                        })
+                    ];
+                })
             ];
-        });
+        })->filter()->values();
 
         return response()->json($results);
     }
@@ -269,7 +354,7 @@ public function processOnlineOrder(Request $request, $id)
         return response()->json($customers);
     }
 
-    // [BARU] CRUD CUSTOMER
+    // CRUD CUSTOMER
     public function customerList()
     {
         return response()->json(Customer::orderBy('name')->get());
@@ -309,7 +394,6 @@ public function processOnlineOrder(Request $request, $id)
 
     public function destroyCustomer($id)
     {
-        // Cek apakah sudah pernah belanja
         if(Transaction::where('customer_id', $id)->exists()) {
             return response()->json(['message' => 'Gagal: Member ini ada riwayat belanja.'], 422);
         }
@@ -318,107 +402,112 @@ public function processOnlineOrder(Request $request, $id)
         return response()->json(['message' => 'Member dihapus']);
     }
 
-    // [UPDATE] Transaksi & Next Invoice
-   public function store(Request $request)
-{
-    $request->validate([
-        'cart' => 'required|array|min:1',
-        'total_amount' => 'required|numeric',
-        'pay_amount' => 'required|numeric',
-    ]);
-
-    // Cek jika cart kosong
-    if (empty($request->cart)) {
-        return response()->json([
-            'status' => 'error',
-            'message' => 'Keranjang tidak boleh kosong'
-        ], 422);
-    }
-
-    DB::beginTransaction();
-    try {
-        $invoiceNumber = $this->generateInvoiceNumber();
-
-        // Hitung ulang total untuk memastikan consistency
-        $calculatedTotal = 0;
-        $totalItems = 0;
-        
-        foreach($request->cart as $item) {
-            // Validasi setiap item
-            if (empty($item['product_unit_id']) || empty($item['qty']) || empty($item['price'])) {
-                throw new \Exception('Data item tidak valid');
-            }
-            $calculatedTotal += ($item['qty'] * $item['price']);
-            $totalItems += $item['qty'];
-        }
-
-        // Cross-check total amount
-        if (abs($calculatedTotal - $request->total_amount) > 1) { // Allow small floating point difference
-            throw new \Exception('Total amount tidak sesuai dengan perhitungan');
-        }
-
-        $trx = Transaction::create([
-            'invoice_number' => $invoiceNumber,
-            'user_id' => Auth::id(),
-            'customer_id' => $request->customer_id,
-            'total_amount' => $calculatedTotal, // Use calculated total
-            'pay_amount' => $request->pay_amount,
-            'change_amount' => $request->pay_amount - $calculatedTotal,
-            'total_items' => $totalItems,
-            'payment_method' => $request->payment_method ?? 'cash',
-            'type' => 'pos',
-            'status' => 'completed'
+    // STORE TRANSACTION (AUTO RESET SETELAH BAYAR)
+    public function store(Request $request)
+    {
+        $request->validate([
+            'cart' => 'required|array|min:1',
+            'total_amount' => 'required|numeric',
+            'pay_amount' => 'required|numeric',
+            'customer_id' => 'nullable|exists:customers,id'
         ]);
 
-        foreach($request->cart as $item) {
-            TransactionDetail::create([
-                'transaction_id' => $trx->id,
-                'product_unit_id' => $item['product_unit_id'],
-                'quantity' => $item['qty'],
-                'price_at_purchase' => $item['price'],
-                'subtotal' => $item['qty'] * $item['price']
-            ]);
+        DB::beginTransaction();
+        try {
+            // GENERATE INVOICE NUMBER DI SERVER
+            $invoiceNumber = $this->generateInvoiceNumber();
             
-            $pu = ProductUnit::find($item['product_unit_id']);
-            if($pu) {
-                $qtyBase = $item['qty'] * $pu->conversion_to_base;
-                $pu->product()->decrement('stock_in_base_unit', $qtyBase);
+            // Hitung ulang total di server untuk keamanan
+            $calculatedTotal = 0;
+            $totalItems = 0;
+            
+            foreach($request->cart as $item) {
+                $calculatedTotal += ($item['qty'] * $item['price']);
+                $totalItems += $item['qty'];
+                
+                // Validasi stok
+                $pu = ProductUnit::find($item['product_unit_id']);
+                if ($pu) {
+                    $stockInBase = $pu->product->stock_in_base_unit;
+                    $qtyBase = $item['qty'] * $pu->conversion_to_base;
+                    
+                    if ($qtyBase > $stockInBase) {
+                        throw new \Exception("Stok tidak mencukupi untuk produk: " . $pu->product->name);
+                    }
+                }
             }
+
+            // Validasi total amount
+            if (abs($calculatedTotal - $request->total_amount) > 100) {
+                throw new \Exception("Total amount tidak sesuai!");
+            }
+
+            // Validasi pembayaran
+            if ($request->pay_amount < $calculatedTotal) {
+                throw new \Exception("Jumlah pembayaran kurang!");
+            }
+
+            $changeAmount = $request->pay_amount - $calculatedTotal;
+
+            // Buat transaksi
+            $trx = Transaction::create([
+                'invoice_number' => $invoiceNumber,
+                'user_id' => Auth::id(),
+                'customer_id' => $request->customer_id,
+                'total_amount' => $calculatedTotal,
+                'pay_amount' => $request->pay_amount,
+                'change_amount' => $changeAmount,
+                'total_items' => $totalItems,
+                'payment_method' => 'cash',
+                'type' => 'pos',
+                'status' => 'completed'
+            ]);
+
+            // Simpan detail dan kurangi stok
+            foreach($request->cart as $item) {
+                TransactionDetail::create([
+                    'transaction_id' => $trx->id,
+                    'product_unit_id' => $item['product_unit_id'],
+                    'quantity' => $item['qty'],
+                    'price_at_purchase' => $item['price'],
+                    'subtotal' => $item['qty'] * $item['price']
+                ]);
+                
+                // Kurangi Stok
+                $pu = ProductUnit::find($item['product_unit_id']);
+                if($pu) {
+                    $qtyBase = $item['qty'] * $pu->conversion_to_base;
+                    $pu->product()->decrement('stock_in_base_unit', $qtyBase);
+                }
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'status' => 'success', 
+                'message' => 'Transaksi berhasil',
+                'invoice_number' => $invoiceNumber,
+                'last_invoice' => $invoiceNumber // kirim invoice terbaru
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'status' => 'error', 
+                'message' => $e->getMessage()
+            ], 500);
         }
-
-        DB::commit();
-
-        return response()->json([
-            'status' => 'success', 
-            'invoice' => $trx->invoice_number,
-            'invoice_number' => $trx->invoice_number,
-            'message' => 'Transaksi berhasil disimpan'
-        ]);
-
-    } catch (\Exception $e) {
-        DB::rollBack();
-        \Log::error('Transaction Error: ' . $e->getMessage());
-        
-        return response()->json([
-            'status' => 'error', 
-            'message' => 'Terjadi kesalahan: ' . $e->getMessage()
-        ], 500);
     }
-}
 
-// FUNCTION GENERATE INVOICE YANG AMAN
-private function generateInvoiceNumber()
-{
-    $prefix = 'INV-';
-    $date = date('ymdHis'); // Tahun 2 digit + bulan + hari + jam + menit + detik
-    
-    do {
-        $random = mt_rand(100, 999); // mt_rand lebih random dari rand()
-        $invoiceNumber = $prefix . $date . '-' . $random;
-    } while (Transaction::where('invoice_number', $invoiceNumber)->exists());
-    
-    return $invoiceNumber;
-}
+    // FUNCTION GENERATE INVOICE NUMBER YANG AMAN
+    private function generateInvoiceNumber()
+    {
+        $date = date('ymd');
+        $time = date('His');
+        $random = rand(100, 999);
+        
+        return 'INV-' . $date . '-' . $time . '-' . $random;
+    }
 
     public function printInvoice($invoice)
     {

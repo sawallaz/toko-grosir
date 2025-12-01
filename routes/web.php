@@ -95,9 +95,12 @@ Route::middleware(['auth', 'verified', 'role:kasir,admin'])->group(function () {
     Route::get('/pos/print/{invoice}', [PosController::class, 'printInvoice'])->name('pos.print');
     Route::get('/pos/history-json', [PosController::class, 'historyJson'])->name('pos.history.json');
     
-    Route::get('/pos/online-order/{id}', [PosController::class, 'onlineOrderDetail'])->name('pos.online.detail');
-    Route::post('/pos/online-order/{id}/process', [PosController::class, 'processOnlineOrder'])->name('pos.online.process');
-    Route::post('/pos/online-order/{id}/reject', [PosController::class, 'rejectOrder'])->name('pos.online.reject');
+    // Online Orders - hanya tampilkan pending/process/ready
+    Route::get('/online-order/{id}', [PosController::class, 'onlineOrderDetail'])->name('pos.online.order.detail');
+    Route::post('/online-order/{id}/process', [PosController::class, 'processOnlineOrder'])->name('pos.online.order.process');
+    Route::post('/online-order/{id}/reject', [PosController::class, 'rejectOrder'])->name('pos.online.order.reject');
+    Route::post('/online-order/{id}/update-status', [PosController::class, 'updateOrderStatus'])->name('pos.online.order.updateStatus');
+    Route::get('/online-orders', [PosController::class, 'onlineOrdersJson'])->name('pos.online.orders.json');
 });
 
 
@@ -106,13 +109,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Cart
     Route::get('/cart', [OrderController::class, 'cart'])->name('cart.index');
     Route::post('/cart/add', [OrderController::class, 'addToCart'])->name('cart.add');
-    Route::post('/cart/update/{id}', [OrderController::class, 'updateCart'])->name('cart.update');
+    Route::patch('/cart/update/{key}', [OrderController::class, 'updateCart'])->name('cart.update');
     Route::delete('/cart/remove/{id}', [OrderController::class, 'removeFromCart'])->name('cart.remove');
+    Route::post('/cart/clear', [OrderController::class, 'clearCart'])->name('cart.clear');
     
     // Checkout & Riwayat
     Route::post('/checkout', [OrderController::class, 'checkout'])->name('checkout');
     Route::get('/my-orders', [OrderController::class, 'index'])->name('orders.index');
     Route::get('/my-orders/{id}', [OrderController::class, 'show'])->name('orders.show');
+      // Checkout routes
+    Route::get('/checkout', [OrderController::class, 'showCheckoutForm'])->name('checkout.form');
+    
+
+    // [BARU] Cancel order oleh customer
+    Route::post('/my-orders/{id}/cancel', [OrderController::class, 'cancelOrder'])->name('orders.cancel');
 
      // Profile Routes
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

@@ -12,7 +12,7 @@
         .small { font-size: 10px; }
     </style>
 </head>
-<body onload="window.print(); setTimeout(window.close, 1000);">
+<body onload="window.print();">
     
     <div class="text-center">
         <div class="bold" style="font-size: 14px;">FADLI FAJAR</div>

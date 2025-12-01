@@ -21,6 +21,10 @@ class Transaction extends Model
         'payment_method',
         'type',
         'status',
+        'delivery_type',
+        'delivery_address',
+        'delivery_note',
+        'ready_at',         // [BARU]
     ];
 
     public function user() { return $this->belongsTo(User::class, 'user_id'); }

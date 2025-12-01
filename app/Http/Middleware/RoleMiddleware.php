@@ -20,6 +20,16 @@ class RoleMiddleware
             return redirect()->route('login');
         }
 
+        // [LOGIKA GACOR] 2. Cek Status Akun
+        // Jika user sedang login tapi statusnya 'inactive', tendang keluar!
+        if ($request->user()->status === 'inactive') {
+            Auth::guard('web')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+            
+            return redirect()->route('login')->withErrors(['email' => 'Sesi berakhir. Akun Anda telah dinonaktifkan.']);
+        }
+
         // Cek 2: Apakah role user ada di dalam daftar role yang diizinkan?
         // Contoh: role:admin,kasir -> $roles = ['admin', 'kasir']
         if (! in_array($request->user()->role, $roles)) {

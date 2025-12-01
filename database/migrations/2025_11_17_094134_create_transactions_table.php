@@ -32,7 +32,17 @@ return new class extends Migration
             
             $table->string('payment_method')->default('cash'); 
             $table->enum('type', ['pos', 'online'])->default('pos'); 
-            $table->enum('status', ['pending', 'process', 'completed', 'cancelled'])->default('completed');
+            
+            // [UPDATE] Tambah status 'ready'
+            $table->enum('status', ['pending', 'process', 'ready', 'completed', 'cancelled'])->default('completed');
+            
+            // [BARU] Kolom untuk pengiriman
+            $table->enum('delivery_type', ['pickup', 'delivery'])->default('pickup');
+            $table->text('delivery_address')->nullable();
+            $table->text('delivery_note')->nullable();
+            
+            // [BARU] Timestamp untuk tracking
+            $table->timestamp('ready_at')->nullable();
             
             $table->timestamps();
         });

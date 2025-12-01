@@ -3,25 +3,13 @@ document.addEventListener('alpine:init', () => {
     Alpine.data('posSystem', () => ({
         // STATE AWAL
         tab: 'sales',
-        invoiceNumber: 'INV-' + Date.now().toString().slice(-8),
-
-        // Online Order
-            showOnlineDetailModal: false,
-            onlineOrder: null,
-            isProcessingOnline: false,
-
-        
-        // WAKTU REAL-TIME
-        currentDate: '',
-        currentTime: '',
-        timeInterval: null,
+        lastInvoiceNumber: '{{ $lastInvoiceNumber ?? "" }}',
         
         // DATA TRANSAKSI
         cart: [{
             tempId: Date.now(), 
             product_name: '', 
             product_id: null, 
-            code: '', 
             product_unit_id: null, 
             unit_name: '', 
             unit_short_name: '', 
@@ -37,65 +25,109 @@ document.addEventListener('alpine:init', () => {
             active: false
         }],
         
-        // CUSTOMER - DITAMBAH FITUR CRUD
+        // CUSTOMER
         customerSearchInput: '', 
-        selectedCustomer: null, 
-        customerFeedback: '', 
-        customerFeedbackColor: '',
+        selectedCustomer: null,
         showCustomerModal: false, 
-        customersList: [], // List semua customer untuk modal
+        customersList: [],
         newCustomerName: '', 
         newCustomerPhone: '',
-        editingCustId: null, 
-        editCustName: '', 
-        editCustPhone: '',
 
         // PAYMENT
         payAmount: '', 
         isProcessing: false,
+
+        // WAKTU
+        currentDate: '',
+        currentTime: '',
+        timeInterval: null,
+        onlineRefreshInterval: null,
+        customerFeedback: '',
+        customerFeedbackColor: '',
+        editingCustId: null,
+        editCustName: '',
+        editCustPhone: '',
         
         // HISTORY
         historyData: [], 
         historyFilter: { q: '', user_id: '', start_date: '', end_date: '' },
 
+        // ONLINE ORDERS
+        onlineOrders: [],
+        onlineSearch: '',
+        loadingOnlineOrders: false,
+        showOnlineDetailModal: false,
+        onlineOrder: null,
+        onlinePayAmount: '0',
+        isProcessingOnline: false,
+        pendingCount: 0,
+
+        // INITIALIZATION
         init() {
-            console.log('POS System Initialized');
+            console.log('💳 POS System Initialized');
             
             // Initialize waktu real-time
             this.updateTime();
             this.timeInterval = setInterval(() => this.updateTime(), 1000);
             
-            // Focus ke input pertama saat load
-            this.$nextTick(() => {
-                this.focusFirstInput();
+            // Auto refresh online orders setiap 30 detik jika di tab online
+            this.onlineRefreshInterval = null;
+            
+            this.$watch('tab', (value) => {
+                if (value === 'sales') {
+                    this.$nextTick(() => {
+                        setTimeout(() => {
+                            const firstInput = document.querySelector('input[placeholder*="barcode"]');
+                            if (firstInput) firstInput.focus();
+                        }, 100);
+                    });
+                    
+                    // Hentikan auto refresh jika ada
+                    if (this.onlineRefreshInterval) {
+                        clearInterval(this.onlineRefreshInterval);
+                        this.onlineRefreshInterval = null;
+                    }
+                }
+                
+                if (value === 'history') {
+                    this.loadHistory();
+                    
+                    // Hentikan auto refresh jika ada
+                    if (this.onlineRefreshInterval) {
+                        clearInterval(this.onlineRefreshInterval);
+                        this.onlineRefreshInterval = null;
+                    }
+                }
+                
+                if (value === 'online') {
+                    this.loadOnlineOrders();
+                    
+                    // Mulai auto refresh setiap 30 detik
+                    if (this.onlineRefreshInterval) {
+                        clearInterval(this.onlineRefreshInterval);
+                    }
+                    
+                    this.onlineRefreshInterval = setInterval(() => {
+                        if (this.tab === 'online' && !this.loadingOnlineOrders) {
+                            this.loadOnlineOrders();
+                        }
+                    }, 30000); // 30 detik
+                }
             });
             
-            // Keyboard shortcuts
+            // Setup keyboard shortcuts
             this.setupKeyboardShortcuts();
             
-            // Load history jika di tab history
-            if (this.tab === 'history') {
-                this.loadHistory();
+            // Focus awal
+            if (this.tab === 'sales') {
+                this.$nextTick(() => {
+                    const firstInput = document.querySelector('input[placeholder*="barcode"]');
+                    if (firstInput) firstInput.focus();
+                });
             }
         },
 
-         focusFirstInput() {
-            this.$nextTick(() => {
-                const firstInput = document.querySelector('input[placeholder="Scan / Ketik..."]');
-                if (firstInput) {
-                    firstInput.focus();
-                }
-            });
-        },
-
-        // Helper function untuk get CSRF token
-        getCsrfToken() {
-            return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || 
-                   document.querySelector('input[name="_token"]')?.value ||
-                   '{{ csrf_token() }}';
-        },
-
-        // Waktu real-time
+        // Update waktu untuk sidebar
         updateTime() {
             const now = new Date();
             this.currentDate = now.toLocaleDateString('id-ID', { 
@@ -111,114 +143,114 @@ document.addEventListener('alpine:init', () => {
             });
         },
 
-        // SWITCH TAB dengan auto load history
+        // Setup keyboard shortcuts
+        setupKeyboardShortcuts() {
+            document.addEventListener('keydown', (e) => {
+                // F1 - Tab Sales
+                if(e.key === 'F1') { 
+                    e.preventDefault(); 
+                    this.switchTab('sales');
+                }
+                // F2 - Tab History
+                if(e.key === 'F2') { 
+                    e.preventDefault(); 
+                    this.switchTab('history');
+                }
+                // F3 - Tab Online
+                if(e.key === 'F3') { 
+                    e.preventDefault(); 
+                    this.switchTab('online');
+                }
+                // F5 - Refresh (di semua tab)
+                if(e.key === 'F5') { 
+                    e.preventDefault(); 
+                    if(this.tab === 'online') {
+                        this.loadOnlineOrders();
+                    } else if(this.tab === 'history') {
+                        this.loadHistory();
+                    } else if(this.tab === 'sales') {
+                        // Refresh invoice number di sales
+                        this.loadLastInvoice();
+                    }
+                }
+                // F8 - Modal Customer
+                if(e.key === 'F8') { 
+                    e.preventDefault(); 
+                    this.openCustomerModal();
+                }
+                // F10 - Bayar
+                if(e.key === 'F10') { 
+                    e.preventDefault(); 
+                    if(this.tab === 'sales') this.processPayment();
+                }
+                // ESC - Close modal atau reset customer
+                if(e.key === 'Escape') {
+                    if(this.showCustomerModal) {
+                        this.showCustomerModal = false;
+                    } else if(this.showOnlineDetailModal) {
+                        this.showOnlineDetailModal = false;
+                    } else if(this.selectedCustomer) {
+                        this.resetCustomer();
+                    }
+                }
+            });
+        },
+
+        // Load last invoice untuk sidebar
+        async loadLastInvoice() {
+            try {
+                const response = await fetch('{{ route("pos.index") }}?last_invoice=1');
+                const data = await response.json();
+                if(data.last_invoice) {
+                    this.lastInvoiceNumber = data.last_invoice;
+                }
+            } catch(error) {
+                console.error('Error loading last invoice:', error);
+            }
+        },
+
+        // Switch tab
         switchTab(tabName) {
             this.tab = tabName;
-            if (tabName === 'history') {
-                this.$nextTick(() => {
-                    this.loadHistory();
-                });
-            }
-            if (tabName === 'sales') {
-                this.$nextTick(() => {
-                    this.focusFirstInput();
-                });
-            }
         },
 
-        // KEYBOARD SHORTCUTS
-setupKeyboardShortcuts() {
-    let enterPressed = false; // Flag untuk prevent multiple Enter
-    
-    document.addEventListener('keydown', (e) => {
-        // F1 - Tab Sales
-        if(e.key === 'F1') { 
-            e.preventDefault(); 
-            this.switchTab('sales');
-        }
-        // F2 - Tab History
-        if(e.key === 'F2') { 
-            e.preventDefault(); 
-            this.switchTab('history');
-        }
-
-        // ESC - Reset customer search atau close modal
-        if(e.key === 'Escape') {
-            if(this.showCustomerModal) {
-                this.showCustomerModal = false;
-            } else if(this.selectedCustomer) {
-                this.resetCustomer();
-            }
-        }
-        
-        // Enter untuk navigasi HANYA di dalam tabel
-        if(e.key === 'Enter' && this.tab === 'sales') {
-            const activeElement = document.activeElement;
-            const isInTable = activeElement.closest('tbody');
+        // AUTO RESET SETELAH BAYAR
+        resetAfterPayment() {
+            this.cart = [{
+                tempId: Date.now(), 
+                product_name: '', 
+                product_id: null, 
+                product_unit_id: null, 
+                unit_name: '', 
+                unit_short_name: '', 
+                price: 0, 
+                qty: 1, 
+                subtotal: 0, 
+                available_units: [], 
+                isWholesale: false, 
+                results: [], 
+                showResults: false, 
+                focusIndex: -1, 
+                error: false,
+                active: false
+            }];
             
-            if (isInTable && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'SELECT')) {
-                e.preventDefault();
-                this.focusNext(e);
-            }
+            this.payAmount = ''; 
+            this.selectedCustomer = null; 
+            this.customerSearchInput = '';
             
-            // Enter di input payAmount - PREVENT MULTIPLE
-            if (activeElement === document.querySelector('input[x-model="payAmount"]') && !enterPressed) {
-                e.preventDefault();
-                enterPressed = true; // Set flag
-                
-                setTimeout(() => {
-                    enterPressed = false; // Reset flag setelah 1 detik
-                }, 1000);
-                
-                this.processPayment();
-            }
-        }
-    });
-},
-
-
-        // --- NAVIGASI ENTER ---
-                
-        focusNext(e) {
-            // Hanya proses navigasi untuk input di dalam tabel
-            const isInTable = e.target.closest('tbody');
-            if (!isInTable) {
-                return; // Jika bukan di tabel, biarkan default behavior
-            }
+            // Update last invoice number di sidebar
+            this.loadLastInvoice();
             
-            // Cari semua input/select hanya di dalam tabel
-            const tableInputs = Array.from(document.querySelectorAll('tbody input:not([type="hidden"]), tbody select'))
-                                    .filter(el => !el.disabled && el.offsetParent !== null);
-            
-            const index = tableInputs.indexOf(e.target);
-            
-            if (index === tableInputs.length - 1) {
-                // Input terakhir di tabel, tambah baris baru
-                let lastRow = this.cart[this.cart.length - 1];
-                if(lastRow.product_id) {
-                    this.addRow();
+            this.$nextTick(() => {
+                const firstInput = document.querySelector('input[placeholder*="barcode"]');
+                if (firstInput) {
+                    firstInput.focus();
                 }
-            } else if (index > -1) {
-                tableInputs[index + 1].focus();
-                if(tableInputs[index + 1].tagName === 'INPUT') tableInputs[index + 1].select();
-            }
+            });
         },
 
-        focusPrev(e) {
-            const isInTable = e.target.closest('tbody');
-            if (!isInTable) return;
-            
-            const tableInputs = Array.from(document.querySelectorAll('tbody input:not([type="hidden"]), tbody select'))
-                                    .filter(el => !el.disabled && el.offsetParent !== null);
-            
-            const index = tableInputs.indexOf(e.target);
-            if (index > 0) {
-                tableInputs[index - 1].focus();
-                if(tableInputs[index - 1].tagName === 'INPUT') tableInputs[index - 1].select();
-            }
-        },
-
-        // --- PRODUCT SEARCH & SELECTION ---
+        // ============ FUNGSI TRANSAKSI ============
         async searchProduct(index) {
             let row = this.cart[index];
             let query = row.product_name.trim();
@@ -231,29 +263,26 @@ setupKeyboardShortcuts() {
             
             try {
                 const response = await fetch(`{{ route('pos.search') }}?q=${encodeURIComponent(query)}`);
-                if (!response.ok) throw new Error('Network response was not ok');
-                
                 row.results = await response.json();
                 row.showResults = true; 
                 row.focusIndex = -1;
             } catch (error) {
-                console.error('Search error:', error);
                 row.results = [];
                 row.showResults = false;
             }
         },
 
-        selectProductManual(index, product) {
+        selectProduct(index, product) {
             let row = this.cart[index];
+            
             row.product_id = product.id;
             row.product_name = product.name;
-            row.code = product.kode_produk;
             row.available_units = product.units || [];
             row.results = []; 
             row.showResults = false;
             row.error = false;
 
-            // Auto select unit (prioritaskan base unit)
+            // Auto select unit
             if (row.available_units.length > 0) {
                 let unit = row.available_units.find(u => u.is_base) || row.available_units[0];
                 if(unit) {
@@ -267,7 +296,7 @@ setupKeyboardShortcuts() {
 
             // Auto-focus ke quantity
             this.$nextTick(() => {
-                const inputs = document.querySelectorAll(`input[x-model="row.qty"]`);
+                const inputs = document.querySelectorAll(`input[type="number"]`);
                 if(inputs[index]) {
                     inputs[index].focus();
                     inputs[index].select();
@@ -275,7 +304,6 @@ setupKeyboardShortcuts() {
             });
         },
         
-        // Keyboard navigation in search results
         focusNextResult(index) { 
             let row = this.cart[index]; 
             if (row.focusIndex < row.results.length - 1) {
@@ -293,77 +321,10 @@ setupKeyboardShortcuts() {
         selectResult(index) { 
             let row = this.cart[index]; 
             if (row.focusIndex >= 0 && row.results[row.focusIndex]) {
-                this.selectProductManual(index, row.results[row.focusIndex]); 
+                this.selectProduct(index, row.results[row.focusIndex]); 
             }
         },
 
-        // --- ROW MANAGEMENT ---
-        addRow() {
-    const newRow = {
-        tempId: Date.now(), 
-        product_name: '', 
-        product_id: null, 
-        code: '', 
-        product_unit_id: null, 
-        unit_name: '', 
-        unit_short_name: '',
-        price: 0, 
-        qty: 1, 
-        subtotal: 0, 
-        available_units: [], 
-        isWholesale: false, 
-        results: [], 
-        showResults: false, 
-        focusIndex: -1, 
-        error: false,
-        active: false
-    };
-    
-    this.cart.push(newRow);
-    
-    
-    this.$nextTick(() => {
-        // Focus ke input product di baris baru
-        const newInputs = document.querySelectorAll('input[placeholder="Scan / Ketik..."]');
-        if(newInputs.length > 0) {
-            const lastInput = newInputs[newInputs.length - 1];
-            lastInput.focus();
-        }
-    });
-},
-        
-        removeRow(index) {
-            if (this.cart.length > 1) {
-                this.cart.splice(index, 1);
-            } else {
-                // Reset baris pertama jika hanya ada satu baris
-                this.cart[0] = { 
-                    tempId: Date.now(), 
-                    product_name: '', 
-                    product_id: null, 
-                    code: '', 
-                    product_unit_id: null, 
-                    unit_name: '', 
-                    unit_short_name: '',
-                    price: 0, 
-                    qty: 1, 
-                    subtotal: 0, 
-                    available_units: [], 
-                    isWholesale: false, 
-                    results: [], 
-                    showResults: false, 
-                    focusIndex: -1, 
-                    error: false,
-                    active: false
-                };
-            }
-            
-            this.$nextTick(() => {
-                this.focusFirstInput();
-            });
-        },
-
-        // --- PRICE & CALCULATIONS ---
         updateUnit(index) {
             let row = this.cart[index];
             if (!row.available_units || row.available_units.length === 0) return;
@@ -376,14 +337,9 @@ setupKeyboardShortcuts() {
             }
         },
         
-        updateSubtotal(index) {
-            this.updatePrice(index);
-        },
-        
         updatePrice(index) {
             let row = this.cart[index];
             
-            // Reset jika tidak ada product
             if (!row.product_id) {
                 row.price = 0;
                 row.subtotal = 0;
@@ -391,7 +347,6 @@ setupKeyboardShortcuts() {
                 return;
             }
             
-            // Cari data unit
             let unitData = row.available_units.find(u => u.product_unit_id == row.product_unit_id);
             if (!unitData) {
                 row.subtotal = 0;
@@ -414,23 +369,99 @@ setupKeyboardShortcuts() {
                 row.isWholesale = false;
             }
             
-            // Hitung subtotal
             row.subtotal = (row.qty || 0) * row.price;
         },
 
-        // --- RESET CART & NEW INVOICE ---
-        resetCart(force = false) { 
-        if(force || confirm('Reset transaksi?')) { 
-            this.cart = []; 
-            this.addRow(); 
-            this.payAmount = ''; 
-            this.selectedCustomer = null; 
-            this.customerSearchInput = ''; 
-            this.customerFeedback = '';
-            // HAPUS generate invoice di sini, biarkan kosong
-            this.invoiceNumber = '';
-        } 
-    },
+        updateSubtotal(index) {
+            this.updatePrice(index);
+        },
+
+        addRow() {
+            const newRow = {
+                tempId: Date.now(), 
+                product_name: '', 
+                product_id: null, 
+                product_unit_id: null, 
+                unit_name: '', 
+                unit_short_name: '',
+                price: 0, 
+                qty: 1, 
+                subtotal: 0, 
+                available_units: [], 
+                isWholesale: false, 
+                results: [], 
+                showResults: false, 
+                focusIndex: -1, 
+                error: false,
+                active: false
+            };
+            
+            this.cart.push(newRow);
+            
+            this.$nextTick(() => {
+                const inputs = document.querySelectorAll('input[placeholder*="barcode"]');
+                if(inputs.length > 0) {
+                    const lastInput = inputs[inputs.length - 1];
+                    lastInput.focus();
+                }
+            });
+        },
+        
+        removeRow(index) {
+            if (this.cart.length > 1) {
+                this.cart.splice(index, 1);
+            } else {
+                this.cart[0] = { 
+                    tempId: Date.now(), 
+                    product_name: '', 
+                    product_id: null, 
+                    product_unit_id: null, 
+                    unit_name: '', 
+                    unit_short_name: '',
+                    price: 0, 
+                    qty: 1, 
+                    subtotal: 0, 
+                    available_units: [], 
+                    isWholesale: false, 
+                    results: [], 
+                    showResults: false, 
+                    focusIndex: -1, 
+                    error: false,
+                    active: false
+                };
+            }
+            
+            this.$nextTick(() => {
+                const firstInput = document.querySelector('input[placeholder*="barcode"]');
+                if (firstInput) firstInput.focus();
+            });
+        },
+
+        // Fokus ke field berikutnya
+        focusNextField(index, target) {
+            if (target === 'qty') {
+                this.$nextTick(() => {
+                    const qtyInput = document.querySelectorAll(`input[type="number"]`)[index];
+                    if (qtyInput) {
+                        qtyInput.focus();
+                        qtyInput.select();
+                    }
+                });
+            } else if (target === 'add') {
+                // Jika di row terakhir, tambah row baru
+                if (index === this.cart.length - 1) {
+                    this.addRow();
+                } else {
+                    // Fokus ke input pencarian di row berikutnya
+                    this.$nextTick(() => {
+                        const nextSearchInput = document.querySelectorAll(`input[placeholder*="barcode"]`)[index + 1];
+                        if (nextSearchInput) {
+                            nextSearchInput.focus();
+                        }
+                    });
+                }
+            }
+        },
 
         // GETTERS
         get grandTotal() { 
@@ -442,100 +473,78 @@ setupKeyboardShortcuts() {
             return paid >= this.grandTotal ? paid - this.grandTotal : -1;
         },
 
-        // --- PAYMENT PROCESSING ---
+        // PROSES PEMBAYARAN (AUTO RESET) - PERBAIKAN PRINT BEHAVIOR
         async processPayment() {
-        // PREVENT DOUBLE SUBMISSION
-        if (this.isProcessing) {
-            console.log('Transaction already in progress...');
-            return;
-        }
-        
-        // Validasi
-        let validCart = this.cart.filter(row => row.product_id && row.qty > 0);
-        if (validCart.length === 0) {
-            alert('Keranjang kosong! Tambahkan produk terlebih dahulu.');
-            return;
-        }
-        
-        if (Number(this.payAmount) < this.grandTotal) {
-            alert('Uang Kurang!');
-            return;
-        }
-        
-        // SET PROCESSING STATE
-        this.isProcessing = true;
-        
-        // DISABLE tombol Bayar secara visual
-        const payButton = document.querySelector('button[x-show="!isProcessing"]');
-        if (payButton) {
-            payButton.disabled = true;
-        }
-        
-        try {
-            const payload = {
-                cart: validCart.map(item => ({
-                    product_unit_id: item.product_unit_id,
-                    qty: item.qty,
-                    price: item.price
-                })),
-                total_amount: this.grandTotal,
-                pay_amount: this.payAmount,
-                customer_id: this.selectedCustomer?.id || null,
-                payment_method: 'cash'
-            };
+            if (this.isProcessing) return;
             
-            console.log('Sending transaction...', payload);
+            let validCart = this.cart.filter(row => row.product_id && row.qty > 0);
+            if (validCart.length === 0) {
+                alert('❌ Keranjang kosong! Tambahkan produk terlebih dahulu.');
+                return;
+            }
             
-            const response = await fetch('{{ route("pos.store") }}', {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json', 
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                },
-                body: JSON.stringify(payload)
-            });
+            if (Number(this.payAmount) < this.grandTotal) {
+                alert('❌ Uang yang dibayarkan kurang!');
+                return;
+            }
             
-            const data = await response.json();
-            console.log('Transaction response:', data);
+            this.isProcessing = true;
             
-            if(data.status === 'success') {
-                // Cetak struk
-                this.printReceipt(data.invoice_number);
+            try {
+                const payload = {
+                    cart: validCart.map(item => ({
+                        product_unit_id: item.product_unit_id,
+                        qty: item.qty,
+                        price: item.price
+                    })),
+                    total_amount: this.grandTotal,
+                    pay_amount: this.payAmount,
+                    customer_id: this.selectedCustomer?.id || null
+                };
                 
-                // Tampilkan info kembalian
-                if(this.changeAmount >= 0) {
-                    alert('Transaksi berhasil!\nKembalian: ' + this.formatRupiah(this.changeAmount));
+                const response = await fetch('{{ route("pos.store") }}', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json', 
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                const data = await response.json();
+                
+                if(data.status === 'success') {
+                    // Update last invoice number di sidebar
+                    this.lastInvoiceNumber = data.invoice_number;
+                    
+                    let message = '✅ Transaksi berhasil!\nInvoice: ' + data.invoice_number;
+                    if(this.changeAmount >= 0) {
+                        message += '\nKembalian: ' + this.formatRupiah(this.changeAmount);
+                    }
+                    
+                    // TANYA CETAK STRUK
+                    const shouldPrint = confirm(message + '\n\nCetak struk sekarang?');
+                    
+                    if (shouldPrint) {
+                        this.printReceipt(data.invoice_number);
+                    }
+                    
+                    // AUTO RESET SETELAH BAYAR
+                    this.resetAfterPayment();
+                    
+                } else {
+                    alert('❌ ' + (data.message || 'Terjadi kesalahan'));
                 }
-                
-                // Reset transaksi
-                this.resetCart(true);
-                
-                // Refresh history
-                this.loadHistory();
-                
-            } else {
-                alert(data.message || 'Terjadi kesalahan');
+            } catch(error) {
+                alert('❌ Error sistem: ' + error.message);
+            } finally {
+                this.isProcessing = false;
             }
-        } catch(error) {
-            console.error('Payment error:', error);
-            alert('Error sistem: ' + error.message);
-        } finally {
-            // RESET PROCESSING STATE - PASTIKAN INI DIJALANKAN
-            this.isProcessing = false;
-            
-            // ENABLE tombol Bayar
-            const payButton = document.querySelector('button[x-show="!isProcessing"]');
-            if (payButton) {
-                payButton.disabled = false;
-            }
-        }
-    },
+        },
 
-        // --- CUSTOMER MANAGEMENT (UPDATE DENGAN FITUR CRUD) ---
+        // ============ FUNGSI CUSTOMER ============
         async findCustomer() {
             if (!this.customerSearchInput.trim()) {
-                this.customerFeedback = 'Masukkan nomor HP atau nama';
-                this.customerFeedbackColor = 'text-yellow-600';
                 return;
             }
             
@@ -545,20 +554,16 @@ setupKeyboardShortcuts() {
                 
                 if(data.length > 0) {
                     this.selectedCustomer = data[0];
-                    this.customerFeedback = 'OK';
-                    this.customerFeedbackColor = 'text-green-600';
+                    this.customerSearchInput = data[0].name + (data[0].phone ? ' (' + data[0].phone + ')' : '');
                 } else {
                     this.selectedCustomer = null;
-                    this.customerFeedback = 'Nihil';
-                    this.customerFeedbackColor = 'text-red-500';
+                    alert('Member tidak ditemukan');
                 }
             } catch(error) {
-                this.customerFeedback = 'Error pencarian';
-                this.customerFeedbackColor = 'text-red-500';
+                console.error('Customer search error:', error);
             }
         },
 
-        // --- MANAJEMEN CUSTOMER (BARU) ---
         openCustomerModal() {
             this.showCustomerModal = true;
             this.loadCustomers();
@@ -569,7 +574,6 @@ setupKeyboardShortcuts() {
                 let res = await fetch('{{ route("pos.customer.list") }}');
                 this.customersList = await res.json();
             } catch(e) {
-                console.error('Error loading customers:', e);
                 alert('Gagal memuat data member');
             }
         },
@@ -579,14 +583,12 @@ setupKeyboardShortcuts() {
                 alert('Nama wajib diisi');
                 return;
             }
-
-            // Validasi nomor HP harus angka
+            
             if(this.newCustomerPhone && !/^\d+$/.test(this.newCustomerPhone)) {
                 alert('Nomor HP harus berupa angka');
                 return;
             }
             
-            // Validasi panjang nomor HP
             if(this.newCustomerPhone && this.newCustomerPhone.length < 10) {
                 alert('Nomor HP minimal 10 digit');
                 return;
@@ -606,12 +608,14 @@ setupKeyboardShortcuts() {
                 });
                 
                 let data = await res.json();
-                this.customersList.push(data); // Update list tabel
-                this.selectCustomerFromList(data); // Auto select
+                this.customersList.push(data);
+                this.selectedCustomer = data;
+                this.customerSearchInput = data.name + (data.phone ? ' (' + data.phone + ')' : '');
+                this.showCustomerModal = false;
                 this.newCustomerName = ''; 
                 this.newCustomerPhone = '';
             } catch(e) { 
-                alert('Gagal simpan member.'); 
+                alert('❌ Gagal simpan member'); 
             }
         },
 
@@ -622,15 +626,16 @@ setupKeyboardShortcuts() {
         },
 
         async updateCustomer(id) {
-             if(this.editCustPhone && !/^\d+$/.test(this.editCustPhone)) {
-                    alert('Nomor HP harus berupa angka');
-                    return;
-                }
+            if(this.editCustPhone && !/^\d+$/.test(this.editCustPhone)) {
+                alert('Nomor HP harus berupa angka');
+                return;
+            }
                 
-                if(this.editCustPhone && this.editCustPhone.length < 10) {
-                    alert('Nomor HP minimal 10 digit');
-                    return;
-                }
+            if(this.editCustPhone && this.editCustPhone.length < 10) {
+                alert('Nomor HP minimal 10 digit');
+                return;
+            }
+
             try {
                 let res = await fetch(`{{ url('pos/customer') }}/${id}`, {
                     method: 'PATCH', 
@@ -646,9 +651,8 @@ setupKeyboardShortcuts() {
                 
                 let data = await res.json();
                 this.editingCustId = null;
-                this.loadCustomers(); // Refresh list
+                this.loadCustomers();
                 
-                // Jika customer ini sedang dipilih, update tampilannya
                 if (this.selectedCustomer && this.selectedCustomer.id === id) {
                     this.selectCustomerFromList(data);
                 }
@@ -675,7 +679,8 @@ setupKeyboardShortcuts() {
                 
                 this.loadCustomers();
                 if (this.selectedCustomer && this.selectedCustomer.id === id) {
-                    this.resetCustomer();
+                    this.selectedCustomer = null;
+                    this.customerSearchInput = '';
                 }
             } catch(e) { 
                 alert('Gagal hapus member.'); 
@@ -684,224 +689,223 @@ setupKeyboardShortcuts() {
 
         selectCustomerFromList(cust) {
             this.selectedCustomer = cust;
-            this.customerSearchInput = cust.name + ' (' + (cust.phone||'-') + ')';
-            this.customerFeedback = 'OK';
-            this.customerFeedbackColor = 'text-green-600';
+            this.customerSearchInput = cust.name + (cust.phone ? ' (' + cust.phone + ')' : '');
             this.showCustomerModal = false;
         },
         
         resetCustomer() {
             this.selectedCustomer = null;
             this.customerSearchInput = '';
-            this.customerFeedback = '';
         },
 
-
-        // --- HISTORY MANAGEMENT ---
+        // ============ FUNGSI HISTORY ============
         async loadHistory() {
+        try {
+            const params = new URLSearchParams({
+                q: this.historyFilter.q,
+                user_id: this.historyFilter.user_id,
+                start_date: this.historyFilter.start_date,
+                end_date: this.historyFilter.end_date
+            });
+            
+            const response = await fetch(`{{ route('pos.history.json') }}?${params.toString()}`);
+            const data = await response.json();
+            
+            // DEBUG: Lihat struktur data
+            console.log('=== HISTORY DEBUG ===');
+            console.log('Data received:', data);
+            
+            if (data.data && data.data.length > 0) {
+                const firstItem = data.data[0];
+                console.log('First transaction:', firstItem);
+                console.log('Customer object:', firstItem.customer);
+                console.log('Buyer object:', firstItem.buyer);
+                console.log('Customer name:', firstItem.customer?.name);
+                console.log('Buyer name:', firstItem.buyer?.name);
+            }
+            
+            this.historyData = data.data || [];
+        } catch(error) {
+            console.error('History load error:', error);
+            this.historyData = [];
+        }
+    },
+
+        // ============ FUNGSI ONLINE ORDERS ============
+        async loadOnlineOrders() {
+            this.loadingOnlineOrders = true;
             try {
-                const params = new URLSearchParams({
-                    q: this.historyFilter.q,
-                    user_id: this.historyFilter.user_id,
-                    start_date: this.historyFilter.start_date,
-                    end_date: this.historyFilter.end_date
-                });
+                this.onlineOrders = [];
+                const params = new URLSearchParams();
+                if (this.onlineSearch) {
+                    params.append('q', this.onlineSearch);
+                }
                 
-                const response = await fetch(`{{ route('pos.history.json') }}?${params.toString()}`);
+                const response = await fetch(`{{ route("pos.online.orders.json") }}?${params.toString()}`);
                 const data = await response.json();
                 
-                this.historyData = data.data || [];
-            } catch(error) {
-                console.error('Error loading history:', error);
-                this.historyData = [];
+                this.onlineOrders = data.data || [];
+                
+                // Update pending count di sidebar
+                this.pendingCount = this.onlineOrders.filter(order => order.status === 'pending').length;
+                
+            } catch (error) {
+                console.error('Online orders load error:', error);
+                this.onlineOrders = [];
+                alert('Gagal memuat pesanan online');
+            } finally {
+                this.loadingOnlineOrders = false;
             }
         },
 
-         // --- ONLINE ORDER LOGIC ---
-// --- ONLINE ORDER LOGIC ---
-async viewOnlineOrder(id) {
-    try {
-        const csrfToken = this.getCsrfToken();
-        
-        // ✅ GUNAKAN URL YANG BENAR SESUAI ROUTES
-        const url = `/pos/online-order/${id}`;
-        
-        console.log('Fetching order from:', url);
-        
-        const res = await fetch(url, {
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'Accept': 'application/json',
-                'X-CSRF-TOKEN': csrfToken
+        async viewOnlineOrder(id) {
+            try {
+                const url = `{{ route('pos.online.order.detail', ['id' => ':id']) }}`.replace(':id', id);
+                const response = await fetch(url);
+                const data = await response.json();
+                this.onlineOrder = data;
+                this.onlinePayAmount = data.total_amount ? data.total_amount.toString() : '0';
+                this.showOnlineDetailModal = true;
+                this.isProcessingOnline = false;
+            } catch (e) { 
+                alert('Gagal memuat detail pesanan'); 
             }
-        }); 
-        
-        if (!res.ok) {
-            throw new Error(`HTTP ${res.status} - ${res.statusText}`);
-        }
-        
-        const data = await res.json();
-        this.onlineOrder = data;
-        this.onlinePayAmount = data.total_amount ? data.total_amount.toString() : '0';
-        this.showOnlineDetailModal = true;
-        this.isProcessingOnline = false;
-        
-    } catch (e) { 
-        console.error('Error loading order:', e);
-        alert('Gagal memuat detail pesanan: ' + e.message); 
-    }
-},
+        },
 
-// Hitung Kembalian Online
-            get onlineChangeAmount() {
-                if (!this.onlineOrder) return 0;
-                let pay = Number(this.onlinePayAmount) || 0;
-                let total = Number(this.onlineOrder.total_amount) || 0;
-                return pay - total;
-            },
+        get onlineChangeAmount() {
+            if (!this.onlineOrder) return 0;
+            let pay = Number(this.onlinePayAmount) || 0;
+            let total = Number(this.onlineOrder.total_amount) || 0;
+            return pay - total;
+        },
+        
+        async processOnlineOrder() {
+            if (this.onlineChangeAmount < 0) {
+                alert('❌ Uang Pembayaran Kurang!');
+                return;
+            }
             
-async processOnlineOrder() {
-    // Validasi
-    if (this.onlineChangeAmount < 0) {
-        alert('Uang Pembayaran Kurang!');
-        return;
-    }
-    
-    if (!confirm('Pastikan uang sudah diterima dan barang sudah siap. Lanjutkan?')) return;
+            if (!confirm('✅ Pastikan uang sudah diterima dan barang sudah siap. Lanjutkan?')) return;
 
-    this.isProcessingOnline = true;
-    
-    try {
-        const csrfToken = this.getCsrfToken();
-        
-        // ✅ GUNAKAN URL YANG BENAR SESUAI ROUTES
-        const url = `/pos/online-order/${this.onlineOrder.id}/process`;
-        
-        console.log('Processing to:', url);
-        
-        const res = await fetch(url, {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json', 
-                'X-CSRF-TOKEN': csrfToken,
-                'X-Requested-With': 'XMLHttpRequest',
-                'Accept': 'application/json'
-            },
-            body: JSON.stringify({
-                pay_amount: parseFloat(this.onlinePayAmount),
-                change_amount: this.onlineChangeAmount
-            })
-        });
-        
-        if (!res.ok) {
-            throw new Error(`HTTP ${res.status} - ${res.statusText}`);
-        }
-        
-        const data = await res.json();
-        
-        if(data.status === 'success') {
-            // Cetak struk
-            const invoiceToPrint = data.invoice_number || this.onlineOrder.invoice_number;
-            this.printReceipt(invoiceToPrint);
+            this.isProcessingOnline = true;
             
-            // Tampilkan success message
-            alert('Pesanan online berhasil diproses!\nKembalian: ' + this.formatRupiah(this.onlineChangeAmount));
-            
-            // Tutup modal dan refresh
-            this.showOnlineDetailModal = false;
-            
-            // Refresh halaman setelah delay singkat
-            setTimeout(() => {
-                window.location.reload();
-            }, 1000);
-            
-        } else { 
-            throw new Error(data.message || 'Unknown server error'); 
-        }
-    } catch(e) { 
-        console.error('Process online error:', e);
-        alert('Error: ' + e.message); 
-    } finally { 
-        this.isProcessingOnline = false; 
-    }
-},
-
-// [BARU] Reject Order (untuk kasir)
-    async rejectOrder(orderId) {
-        if (!confirm('Tolak pesanan ini? Pesanan akan dibatalkan dan customer akan mendapat notifikasi.')) return;
-
-        try {
-            const csrfToken = this.getCsrfToken();
-            const url = `/pos/online-order/${orderId}/reject`;
-            
-            const res = await fetch(url, {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json', 
-                    'X-CSRF-TOKEN': csrfToken,
-                    'X-Requested-With': 'XMLHttpRequest'
+            try {
+                const url = `{{ route('pos.online.order.process', ['id' => ':id']) }}`.replace(':id', this.onlineOrder.id);
+                
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json', 
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({
+                        pay_amount: parseFloat(this.onlinePayAmount),
+                        change_amount: this.onlineChangeAmount
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if(data.status === 'success') {
+                    const invoiceToPrint = data.invoice_number || this.onlineOrder.invoice_number;
+                    
+                    // CETAK STRUK UNTUK PESANAN ONLINE
+                    this.printReceipt(invoiceToPrint);
+                    
+                    alert('✅ Pesanan online berhasil diproses!\nKembalian: ' + this.formatRupiah(this.onlineChangeAmount));
+                    
+                    this.showOnlineDetailModal = false;
+                    this.loadOnlineOrders();
+                    
+                } else { 
+                    alert('❌ ' + (data.message || 'Gagal memproses')); 
                 }
-            });
-            
-            const data = await res.json();
-            
-            if(data.status === 'success') {
-                alert('Pesanan berhasil ditolak');
-                window.location.reload();
-            } else {
-                alert('Gagal: ' + data.message);
+            } catch(e) { 
+                alert('❌ Error sistem'); 
+            } finally { 
+                this.isProcessingOnline = false; 
             }
-        } catch(e) {
-            console.error('Reject order error:', e);
-            alert('Error sistem');
-        }
-    },
-
-    // [UPDATE] Update Order Status - hanya untuk process dan completed
-    async updateOrderStatus(orderId, newStatus) {
-        if (!confirm(`Ubah status pesanan menjadi ${newStatus.toUpperCase()}?`)) return;
-
-        try {
-            const csrfToken = this.getCsrfToken();
-            const url = `/pos/online-order/${orderId}/update-status`;
-            
-            const res = await fetch(url, {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json', 
-                    'X-CSRF-TOKEN': csrfToken,
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                body: JSON.stringify({
-                    status: newStatus
-                })
-            });
-            
-            const data = await res.json();
-            
-            if(data.status === 'success') {
-                alert('Status berhasil diupdate');
-                window.location.reload();
-            } else {
-                alert('Gagal: ' + data.message);
-            }
-        } catch(e) {
-            console.error('Update status error:', e);
-            alert('Error sistem');
-        }
-    },
-
-        // --- UTILITIES ---
-        printReceipt(invoiceNumber) {
-            const printUrl = `{{ url('/pos/print') }}/${invoiceNumber}`;
-            window.open(printUrl, '_blank', 'width=400,height=600');
         },
-        
+
+        async rejectOrder(orderId) {
+            if (!confirm('❌ Tolak pesanan ini? Pesanan akan dibatalkan.')) return;
+
+            try {
+                const url = `{{ route('pos.online.order.reject', ['id' => ':id']) }}`.replace(':id', orderId);
+                
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json', 
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if(data.status === 'success') {
+                    alert('✅ Pesanan berhasil ditolak');
+                    this.loadOnlineOrders();
+                } else {
+                    alert('❌ Gagal: ' + data.message);
+                }
+            } catch(e) {
+                alert('❌ Error sistem');
+            }
+        },
+
+        async updateOrderStatus(orderId, newStatus) {
+            if (!confirm(`🔄 Ubah status pesanan menjadi ${newStatus.toUpperCase()}?`)) return;
+
+            try {
+                const url = `{{ route('pos.online.order.updateStatus', ['id' => ':id']) }}`.replace(':id', orderId);
+                
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json', 
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({
+                        status: newStatus
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if(data.status === 'success') {
+                    alert('✅ Status berhasil diupdate');
+                    this.loadOnlineOrders();
+                } else {
+                    alert('❌ Gagal: ' + data.message);
+                }
+            } catch(e) {
+                alert('❌ Error sistem');
+            }
+        },
+
+        // ============ UTILITIES ============
+        printReceipt(invoiceNumber) {
+            if (!invoiceNumber) return;
+            
+            const printUrl = `{{ url('/pos/print') }}/${invoiceNumber}`;
+            
+            // BUKA TAB BARU UNTUK PRINT, NANTI OTOMATIS PRINT
+            const printWindow = window.open(printUrl, '_blank', 'width=400,height=600');
+            
+            // OPTIONAL: Auto close setelah print (jika printer support)
+            printWindow.onload = function() {
+                printWindow.print();
+                // setTimeout(() => printWindow.close(), 1000); // Opsional: auto close
+            };
+        },
         
         formatRupiah(amount) {
+            if (!amount && amount !== 0) return '0';
             return new Intl.NumberFormat('id-ID').format(amount);
         }
 
     }));
 });
+
 </script>
