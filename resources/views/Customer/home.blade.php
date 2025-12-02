@@ -2,7 +2,7 @@
 
 @section('title', 'Beranda - FADLIMART')
 @section('content')
-<div class="min-h-screen pb-6">
+<div class="min-h-screen pb-6 fade-in">
     <!-- 1. HERO BANNER (Enhanced) -->
     @if(!request('search') && !request('category'))
     <div class="mb-8">
@@ -50,28 +50,25 @@
     </div>
     @endif
 
-    <!-- 2. KATEGORI SECTION (Enhanced) -->
-    <div id="kategori" class="mb-12">
+    <!-- KATEGORI SECTION -->
+    <div id="kategori" class="mb-12 animate-slide-up">
         <div class="flex items-center justify-between mb-6">
             <div>
-                <h2 class="text-2xl font-black text-gray-900 mb-2">Kategori Pilihan</h2>
-                <p class="text-gray-500">Temukan produk berdasarkan kategori</p>
+                <h2 class="text-2xl font-black text-gray-900 mb-2">Kategori Produk</h2>
+                <p class="text-gray-500">Pilih berdasarkan kategori favorit Anda</p>
             </div>
             @if(request('category'))
                 <a href="{{ route('home') }}" class="text-sm text-red-500 font-bold hover:text-red-600 transition-colors flex items-center gap-2">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
-                    Reset Filter
+                    ✕ Reset Filter
                 </a>
             @endif
         </div>
         
-        <!-- Categories Grid -->
-        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
-            <!-- All Categories -->
+        <!-- Categories -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+            <!-- All -->
             <a href="{{ route('home') }}" 
-               class="group bg-white rounded-2xl p-4 shadow-sm border-2 transition-all duration-300 hover:shadow-xl flex flex-col items-center text-center {{ !request('category') ? 'border-indigo-600 shadow-md' : 'border-gray-200 hover:border-indigo-400' }}">
+               class="group bg-white p-4 rounded-2xl shadow-soft border-2 transition-all-300 hover:shadow-hard flex flex-col items-center text-center {{ !request('category') ? 'border-indigo-600 shadow-md' : 'border-gray-200 hover:border-indigo-400' }}">
                 <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
                     <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
@@ -82,7 +79,7 @@
 
             @foreach($categories as $cat)
             <a href="{{ route('home', ['category' => $cat->id]) }}" 
-               class="group bg-white rounded-2xl p-4 shadow-sm border-2 transition-all duration-300 hover:shadow-xl flex flex-col items-center text-center {{ request('category') == $cat->id ? 'border-indigo-600 shadow-md' : 'border-gray-200 hover:border-indigo-400' }}">
+               class="group bg-white p-4 rounded-2xl shadow-soft border-2 transition-all-300 hover:shadow-hard flex flex-col items-center text-center {{ request('category') == $cat->id ? 'border-indigo-600 shadow-md' : 'border-gray-200 hover:border-indigo-400' }}">
                 <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
                     <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path>
@@ -94,176 +91,171 @@
         </div>
     </div>
 
-    <!-- 3. PRODUCTS GRID (Enhanced) -->
-    <div id="produk-terbaru">
-        <div class="flex items-center justify-between mb-8">
+    <!-- PRODUCTS SECTION -->
+    <div id="produk" class="animate-slide-up">
+        <div class="flex items-center justify-between mb-6">
             <div>
                 <h2 class="text-2xl font-black text-gray-900 mb-2">Produk Terbaru</h2>
                 <p class="text-gray-500">Temukan produk terbaik dengan harga grosir</p>
             </div>
             
-            <!-- Sort Options -->
+            <!-- Filter & Sort -->
             <div class="flex items-center gap-4">
-                <span class="text-sm text-gray-500 hidden md:block">Urutkan:</span>
-                <select class="text-sm border-gray-300 rounded-lg focus:border-indigo-500 focus:ring-indigo-500">
-                    <option>Terbaru</option>
-                    <option>Harga Terendah</option>
-                    <option>Harga Tertinggi</option>
-                    <option>Stok Terbanyak</option>
+                <select id="sortProducts" class="border border-gray-300 rounded-lg px-4 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                    <option value="newest">Terbaru</option>
+                    <option value="price_low">Harga: Rendah ke Tinggi</option>
+                    <option value="price_high">Harga: Tinggi ke Rendah</option>
+                    <option value="stock">Stok Terbanyak</option>
                 </select>
             </div>
         </div>
         
         <!-- Products Grid -->
-        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
-            @forelse($products as $product)
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-2xl hover:border-indigo-200 transition-all duration-300 group flex flex-col h-full">
-                <!-- Product Image -->
-                <div class="aspect-square w-full bg-gradient-to-br from-gray-50 to-gray-100 relative overflow-hidden">
-                    @if($product->foto_produk)
-                        <img 
-                            src="{{ Storage::url($product->foto_produk) }}" 
-                            alt="{{ $product->name }}"
-                            class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                            loading="lazy"
-                        >
-                    @else
-                        <div class="w-full h-full flex items-center justify-center text-gray-300">
-                            <svg class="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.001M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                            </svg>
-                        </div>
-                    @endif
-                    
-                    <!-- Stock Badge -->
-                    @if($product->stock_in_base_unit == 0)
-                        <div class="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center">
-                            <span class="bg-red-600 text-white text-xs font-bold px-3 py-2 rounded-full shadow-lg">STOK HABIS</span>
-                        </div>
-                    @elseif($product->stock_in_base_unit < 10)
-                        <div class="absolute top-3 left-3">
-                            <span class="bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow">STOK TERBATAS</span>
-                        </div>
-                    @endif
-
-                    <!-- Category Badge -->
-                    <div class="absolute top-3 right-3">
-                        <span class="bg-black/70 text-white text-xs font-bold px-2 py-1 rounded-full backdrop-blur-sm">
-                            {{ $product->category->name ?? 'Umum' }}
-                        </span>
-                    </div>
-
-                    <!-- Quick Actions Overlay -->
-                    <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                        <a href="{{ route('product.show', $product->id) }}" 
-                           class="bg-white text-gray-900 px-4 py-2 rounded-xl font-bold hover:bg-gray-100 transition-all transform translate-y-4 group-hover:translate-y-0 duration-300 flex items-center gap-2">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                            </svg>
-                            Lihat Detail
-                        </a>
-                    </div>
-                </div>
-
-                <!-- Product Info -->
-                <div class="p-4 flex-1 flex flex-col">
-                    <h4 class="font-bold text-gray-900 text-sm leading-snug mb-2 line-clamp-2 group-hover:text-indigo-600 transition-colors">
-                        {{ $product->name }}
-                    </h4>
-                    
-                    <div class="mt-auto space-y-3">
-                        <!-- Price -->
-                        <div class="flex items-baseline gap-1">
-                            <span class="text-xs text-gray-500 font-medium">Rp</span>
-                            <span class="text-lg font-black text-gray-900">
-                                {{ number_format($product->baseUnit->price ?? 0, 0, ',', '.') }}
-                            </span>
-                        </div>
-                        
-                        <!-- Unit & Stock -->
-                        <div class="flex justify-between items-center text-xs text-gray-500">
-                            <span>per {{ $product->baseUnit->unit->name ?? 'Unit' }}</span>
-                            @if($product->stock_in_base_unit > 0)
-                                <span class="text-green-600 font-medium">
-                                    Stok: {{ floor($product->stock_in_base_unit / ($product->baseUnit->conversion_to_base ?? 1)) }}
-                                </span>
-                            @endif
-                        </div>
-
-                        <!-- Add to Cart Button -->
-                        @if($product->stock_in_base_unit > 0)
-                        <form action="{{ route('cart.add') }}" method="POST" class="mt-2">
-                            @csrf
-                            <input type="hidden" name="product_id" value="{{ $product->id }}">
-                            <input type="hidden" name="unit_id" value="{{ $product->baseUnit->id }}">
-                            <input type="hidden" name="quantity" value="1">
-                            
-                            <button type="submit" 
-                                    class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold py-3 rounded-xl hover:shadow-lg transform hover:scale-105 transition-all duration-300 flex items-center justify-center gap-2 text-sm">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                                </svg>
-                                Tambah Keranjang
-                            </button>
-                        </form>
-                        @else
-                        <button disabled 
-                                class="w-full bg-gray-200 text-gray-500 font-bold py-3 rounded-xl cursor-not-allowed text-sm">
-                            Stok Habis
-                        </button>
-                        @endif
-                    </div>
-                </div>
-            </div>
-            @empty
-            <!-- Empty State -->
-            <div class="col-span-full text-center py-16">
-                <div class="w-24 h-24 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                    </svg>
-                </div>
-                <h3 class="text-xl font-black text-gray-900 mb-3">Tidak Ada Produk Ditemukan</h3>
-                <p class="text-gray-500 mb-8 max-w-sm mx-auto">
-                    @if(request('search'))
-                        Tidak ada hasil untuk "{{ request('search') }}". Coba kata kunci lain.
-                    @elseif(request('category'))
-                        Tidak ada produk dalam kategori ini.
-                    @else
-                        Belum ada produk yang tersedia.
-                    @endif
-                </p>
-                <a href="{{ route('home') }}" 
-                   class="inline-flex items-center gap-2 bg-indigo-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-indigo-700 shadow-lg transition-all">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
-                    </svg>
-                    Lihat Semua Produk
-                </a>
-            </div>
-            @endforelse
+        <div id="products-container">
+            @include('customer.partials.products-grid', ['products' => $products])
         </div>
 
-        <!-- Pagination -->
-        @if($products->hasPages())
-        <div class="mt-12 flex justify-center">
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
-                {{ $products->links() }}
-            </div>
+        <!-- Load More Button (AJAX) -->
+        @if($products->hasMorePages())
+        <div class="mt-8 text-center">
+            <button id="load-more" 
+                    data-page="2" 
+                    data-category="{{ request('category') }}" 
+                    data-search="{{ request('search') }}"
+                    class="bg-white border-2 border-indigo-600 text-indigo-600 px-8 py-3 rounded-xl font-bold hover:bg-indigo-50 transition-all">
+                Muat Lebih Banyak
+            </button>
         </div>
         @endif
     </div>
 </div>
 
-<style>
-    @keyframes float {
-        0%, 100% { transform: translateY(0px) rotate(12deg); }
-        50% { transform: translateY(-10px) rotate(12deg); }
-    }
-    .animate-float {
-        animation: float 3s ease-in-out infinite;
-    }
-</style>
+<!-- Quick View Modal -->
+<div id="quick-view-modal" class="fixed inset-0 bg-black/50 z-[100] hidden items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-auto animate-slide-up">
+        <!-- Modal content will be loaded via AJAX -->
+    </div>
+</div>
 
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Sort products
+    const sortSelect = document.getElementById('sortProducts');
+    if (sortSelect) {
+        sortSelect.addEventListener('change', function() {
+            const url = new URL(window.location);
+            url.searchParams.set('sort', this.value);
+            window.app.loadPage(url.toString());
+        });
+    }
+
+    // Load more products
+    const loadMoreBtn = document.getElementById('load-more');
+    if (loadMoreBtn) {
+        loadMoreBtn.addEventListener('click', async function() {
+            const page = this.dataset.page;
+            const category = this.dataset.category;
+            const search = this.dataset.search;
+            
+            this.disabled = true;
+            this.innerHTML = '<span class="animate-spin">⟳</span> Memuat...';
+            
+            try {
+                const response = await fetch(`?page=${page}&category=${category}&search=${search}&ajax=1`, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+                
+                const html = await response.text();
+                
+                // Append new products
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = html;
+                const newProducts = tempDiv.querySelector('#products-container');
+                
+                if (newProducts) {
+                    document.getElementById('products-container').insertAdjacentHTML('beforeend', newProducts.innerHTML);
+                    
+                    // Update page number
+                    this.dataset.page = parseInt(page) + 1;
+                    
+                    // Check if there are more pages
+                    if (!tempDiv.querySelector('#load-more')) {
+                        this.remove();
+                    }
+                }
+                
+                this.disabled = false;
+                this.innerHTML = 'Muat Lebih Banyak';
+                
+            } catch (error) {
+                console.error('Error loading more products:', error);
+                this.innerHTML = 'Error, coba lagi';
+                setTimeout(() => {
+                    this.disabled = false;
+                    this.innerHTML = 'Muat Lebih Banyak';
+                }, 2000);
+            }
+        });
+    }
+
+    // Quick view functionality
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('[data-quick-view]')) {
+            const productId = e.target.closest('[data-quick-view]').dataset.productId;
+            showQuickView(productId);
+        }
+        
+        // Close modal
+        if (e.target.id === 'quick-view-modal' || e.target.closest('[data-close-modal]')) {
+            hideQuickView();
+        }
+    });
+    
+    async function showQuickView(productId) {
+        const modal = document.getElementById('quick-view-modal');
+        const modalContent = modal.querySelector('.bg-white');
+        
+        try {
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            
+            modalContent.innerHTML = `
+                <div class="p-8">
+                    <div class="flex justify-between items-start mb-6">
+                        <h3 class="text-xl font-bold">Memuat...</h3>
+                        <button data-close-modal class="text-gray-500 hover:text-gray-700">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="h-64 skeleton rounded-xl"></div>
+                </div>
+            `;
+            
+            const response = await fetch(`/product/${productId}/quick-view`);
+            const html = await response.text();
+            
+            modalContent.innerHTML = html;
+            
+        } catch (error) {
+            modalContent.innerHTML = `
+                <div class="p-8">
+                    <div class="text-center text-red-500">
+                        Gagal memuat detail produk
+                    </div>
+                </div>
+            `;
+        }
+    }
+    
+    function hideQuickView() {
+        const modal = document.getElementById('quick-view-modal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+});
+</script>
 @endsection

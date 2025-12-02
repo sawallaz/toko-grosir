@@ -297,12 +297,16 @@
                             
                             <!-- Baris kosong untuk tambah otomatis -->
                             <tr>
-                                <td colspan="7" class="p-2 text-center bg-gradient-to-r from-gray-50 to-white border-t border-gray-200">
-                                    <div class="text-sm text-gray-500 italic py-2">
-                                        Tekan <kbd class="px-2 py-1 bg-gray-200 rounded text-xs">Enter</kbd> pada kolom Qty untuk menambah baris baru
-                                    </div>
-                                </td>
-                            </tr>
+    <td colspan="7" class="p-3 text-center bg-gradient-to-r from-gray-50 to-white border-t border-gray-200">
+        <button @click="addRow()" 
+                class="bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-4 py-2.5 rounded-md font-semibold text-sm shadow transition-all duration-150 hover:bg-gradient-to-r hover:from-indigo-600 hover:to-purple-600 hover:shadow-md flex items-center gap-1 mx-auto">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+            </svg>
+            Tambah Baris Baru
+        </button>
+    </td>
+</tr>
                         </tbody>
                         </table>
                     </div>

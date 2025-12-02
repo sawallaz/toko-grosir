@@ -9,46 +9,84 @@
     <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700,800,900&display=swap" rel="stylesheet" />
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     
-    <!-- Improved Styles -->
+    <!-- Alpine.js -->
+    <script src="//unpkg.com/alpinejs" defer></script>
+    
     <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-dark: #4338ca;
+            --secondary: #fbbf24;
+        }
+        
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         
-        /* Safe area for modern phones */
-        .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0); }
+        /* Animations */
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .animate-slide-up {
+            animation: slideUp 0.3s ease-out;
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        /* Glass effect */
+        .glass {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+        
+        /* Custom utilities */
+        .text-shadow { text-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .shadow-soft { box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08); }
+        .shadow-hard { box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15); }
         
         /* Smooth transitions */
-        * { transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease; }
+        .transition-all-300 { transition: all 0.3s ease; }
+        .transition-all-500 { transition: all 0.5s ease; }
         
-        /* Custom scroll for desktop */
-        @media (min-width: 768px) {
-            ::-webkit-scrollbar { width: 6px; }
-            ::-webkit-scrollbar-track { background: #f1f5f9; }
-            ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
-            ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        /* Loading skeleton */
+        .skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
         }
         
-        /* Loading states */
-        .loading { opacity: 0.6; pointer-events: none; }
-        
-        /* Enhanced focus states */
-        .focus-ring:focus {
-            outline: 2px solid #4f46e5;
-            outline-offset: 2px;
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
         }
+        
+        /* Floating animation */
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        .animate-float { animation: float 3s ease-in-out infinite; }
     </style>
     
-    <!-- Additional Meta -->
     <meta name="theme-color" content="#4f46e5">
     <meta name="description" content="Toko grosir online dengan harga termurah dan kualitas terbaik">
 </head>
 <body class="bg-gray-50 font-sans text-gray-900 antialiased min-h-screen flex flex-col">
 
-    <!-- HEADER / NAVBAR (Enhanced) -->
+    <!-- HEADER -->
     <header class="bg-white shadow-sm sticky top-0 z-50 border-b border-gray-100">
         <div class="container mx-auto px-4 h-16 flex items-center justify-between gap-4">
             
-            <!-- LOGO (Improved) -->
+            <!-- LOGO -->
             <a href="{{ route('home') }}" class="flex-shrink-0 flex items-center gap-2 group">
                 <div class="relative">
                     <svg class="w-8 h-8 text-indigo-600 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -61,7 +99,7 @@
                 </div>
             </a>
 
-            <!-- SEARCH BAR (Enhanced) -->
+            <!-- SEARCH BAR -->
             <div class="flex-1 max-w-2xl mx-4">
                 <form action="{{ route('home') }}" method="GET" class="relative group">
                     <input 
@@ -87,11 +125,11 @@
                 </form>
             </div>
 
-            <!-- ACTION BUTTONS (Enhanced) -->
+            <!-- ACTION BUTTONS -->
             <div class="flex items-center gap-2 md:gap-4 flex-shrink-0">
                 
-                <!-- Cart Button (Improved) -->
-                <a href="{{ route('cart.index') }}" class="relative p-2 rounded-xl hover:bg-gray-50 transition-colors group focus-ring" aria-label="Keranjang belanja">
+                <!-- Cart Button -->
+                <a href="{{ route('cart.index') }}" class="relative p-2 rounded-xl hover:bg-gray-50 transition-colors group" aria-label="Keranjang belanja">
                     <svg class="w-6 h-6 text-gray-600 group-hover:text-indigo-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path>
                     </svg>
@@ -110,15 +148,14 @@
                 <!-- Desktop Separator -->
                 <div class="h-6 w-px bg-gray-300 hidden md:block"></div>
 
-                <!-- Auth Section (Enhanced) -->
+                <!-- Auth Section -->
                 <div class="flex-shrink-0">
                     @auth
-                    <!-- User Dropdown (Improved) -->
+                    <!-- User Dropdown -->
                     <div x-data="{ open: false }" class="relative">
-                        <!-- Trigger Button -->
                         <button 
                             @click="open = !open" 
-                            class="flex items-center gap-2 hover:bg-gray-50 rounded-xl p-2 transition-all focus-ring"
+                            class="flex items-center gap-2 hover:bg-gray-50 rounded-xl p-2 transition-all"
                             :class="open ? 'bg-gray-50' : ''"
                             aria-label="Menu pengguna"
                         >
@@ -134,7 +171,7 @@
                             </svg>
                         </button>
 
-                        <!-- Dropdown Menu (Enhanced) -->
+                        <!-- Dropdown Menu -->
                         <div x-show="open" 
                              @click.away="open = false"
                              x-transition:enter="transition ease-out duration-200"
@@ -146,7 +183,6 @@
                              class="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50 backdrop-blur-sm bg-white/95"
                              style="display: none;">
                             
-                            <!-- User Info -->
                             <div class="px-4 py-3 border-b border-gray-100">
                                 <div class="text-sm font-semibold text-gray-900 truncate">{{ Auth::user()->name }}</div>
                                 <div class="text-xs text-gray-500 capitalize mt-1 flex items-center gap-1">
@@ -155,7 +191,6 @@
                                 </div>
                             </div>
 
-                            <!-- Menu Items -->
                             <div class="py-1">
                                 <a href="{{ route('orders.index') }}" class="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors group">
                                     <svg class="w-4 h-4 text-gray-400 group-hover:text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -173,7 +208,6 @@
                                 </a>
                             </div>
 
-                            <!-- Logout -->
                             <div class="border-t border-gray-100 pt-1">
                                 <form method="POST" action="{{ route('logout') }}">
                                     @csrf
@@ -188,12 +222,12 @@
                         </div>
                     </div>
                     @else
-                    <!-- Guest State (Improved) -->
+                    <!-- Guest State -->
                     <div class="flex gap-2">
-                        <a href="{{ route('login') }}" class="px-4 py-2 text-sm font-bold text-indigo-600 border border-indigo-600 rounded-xl hover:bg-indigo-50 transition-all focus-ring">
+                        <a href="{{ route('login') }}" class="px-4 py-2 text-sm font-bold text-indigo-600 border border-indigo-600 rounded-xl hover:bg-indigo-50 transition-all">
                             Masuk
                         </a>
-                        <a href="{{ route('register') }}" class="px-4 py-2 text-sm font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition-all shadow-sm hover:shadow focus-ring hidden md:block">
+                        <a href="{{ route('register') }}" class="px-4 py-2 text-sm font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition-all shadow-sm hover:shadow hidden md:block">
                             Daftar
                         </a>
                     </div>
@@ -203,13 +237,13 @@
         </div>
     </header>
 
-    <!-- MAIN CONTENT (Enhanced) -->
-    <main class="flex-1 container mx-auto px-4 py-6">
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 container mx-auto px-4 py-6" id="main-content">
         <!-- Flash Messages -->
         @if(session('success') || session('error') || session('warning'))
         <div class="mb-6 space-y-3">
             @if(session('success'))
-            <div class="p-4 bg-green-50 border border-green-200 rounded-xl text-green-700 text-sm font-medium flex items-center gap-3 animate-fade-in">
+            <div class="p-4 bg-green-50 border border-green-200 rounded-xl text-green-700 text-sm font-medium flex items-center gap-3 animate-slide-up">
                 <svg class="w-5 h-5 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                 </svg>
@@ -218,7 +252,7 @@
             @endif
             
             @if(session('error'))
-            <div class="p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm font-medium flex items-center gap-3 animate-fade-in">
+            <div class="p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm font-medium flex items-center gap-3 animate-slide-up">
                 <svg class="w-5 h-5 text-red-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                 </svg>
@@ -232,7 +266,7 @@
         @yield('content')
     </main>
 
-    <!-- BOTTOM NAVIGATION (Enhanced) -->
+    <!-- BOTTOM NAVIGATION -->
     <nav class="md:hidden fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 z-50 pb-safe shadow-[0_-4px_20px_rgba(0,0,0,0.08)] backdrop-blur-sm bg-white/95">
         <div class="grid grid-cols-4 h-16">
             <!-- Home -->
@@ -249,16 +283,16 @@
                 @endif
             </a>
 
-            <!-- PESANAN SAYA - POSISI BARU -->
-        <a href="{{ route('orders.index') }}" class="flex flex-col items-center justify-center transition-colors group relative 
-            {{ request()->routeIs('orders.*') ? 'text-indigo-600' : 'text-gray-400 hover:text-indigo-600' }}">
-            <div class="relative p-2 rounded-xl group-hover:bg-indigo-50 transition-colors">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
-                </svg>
-            </div>
-            <span class="text-[10px] font-bold mt-1">Pesanan</span>
-        </a>
+            <!-- Pesanan -->
+            <a href="{{ route('orders.index') }}" class="flex flex-col items-center justify-center transition-colors group relative 
+                {{ request()->routeIs('orders.*') ? 'text-indigo-600' : 'text-gray-400 hover:text-indigo-600' }}">
+                <div class="relative p-2 rounded-xl group-hover:bg-indigo-50 transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                    </svg>
+                </div>
+                <span class="text-[10px] font-bold mt-1">Pesanan</span>
+            </a>
 
             <!-- Cart -->
             <a href="{{ route('cart.index') }}" class="flex flex-col items-center justify-center transition-colors group relative 
@@ -276,9 +310,6 @@
                     @endauth
                 </div>
                 <span class="text-[10px] font-bold mt-1">Keranjang</span>
-                @if(request()->routeIs('cart.*'))
-                <div class="absolute top-0 w-1 h-1 bg-indigo-600 rounded-full"></div>
-                @endif
             </a>
 
             <!-- Account -->
@@ -290,69 +321,486 @@
                     </svg>
                 </div>
                 <span class="text-[10px] font-bold mt-1">Akun</span>
-                @if(request()->routeIs('profile.*'))
-                <div class="absolute top-0 w-1 h-1 bg-indigo-600 rounded-full"></div>
-                @endif
             </a>
         </div>
     </nav>
 
-    <!-- Loading Overlay (Optional) -->
-    <div id="global-loading" class="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-50 transition-opacity duration-300 opacity-0 pointer-events-none">
+    <!-- AJAX Loader -->
+    <div id="ajax-loader" class="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-[100] transition-opacity duration-300 opacity-0 pointer-events-none">
         <div class="text-center">
             <div class="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
             <p class="text-gray-600 font-medium">Memuat...</p>
         </div>
     </div>
 
-    <!-- Scripts -->
-    <script>
-        // Global loading handler
-        document.addEventListener('DOMContentLoaded', function() {
-            // Handle form submissions for global loading
-            document.addEventListener('submit', function(e) {
-                const form = e.target;
-                if (form.method === 'post' || form.method === 'POST') {
-                    showLoading();
+   <script>
+class FadliMartApp {
+    constructor() {
+        this.init();
+    }
+
+    init() {
+        this.setupAjax();
+        this.setupLoading();
+        this.setupCartActions();
+        this.setupQuickActions();
+        this.setupEventListeners();
+    }
+
+    // ====================
+    // 1. SETUP LOADING
+    // ====================
+    setupLoading() {
+        // Create global loading handler
+        window.addEventListener('beforeunload', () => {
+            this.showLoading();
+        });
+        
+        // Handle form submissions
+        document.addEventListener('submit', (e) => {
+            const form = e.target;
+            if (form.method === 'post' || form.method === 'POST') {
+                this.showLoading();
+            }
+        });
+        
+        // Handle AJAX requests
+        const originalFetch = window.fetch;
+        window.fetch = async (...args) => {
+            this.showLoading();
+            try {
+                return await originalFetch(...args);
+            } finally {
+                setTimeout(() => this.hideLoading(), 300);
+            }
+        };
+    }
+
+    // ====================
+    // 2. LOADING METHODS
+    // ====================
+    showLoading() {
+        const loader = document.getElementById('ajax-loader');
+        if (loader) {
+            loader.classList.remove('opacity-0', 'pointer-events-none');
+            loader.classList.add('opacity-100');
+        }
+    }
+
+    hideLoading() {
+        const loader = document.getElementById('ajax-loader');
+        if (loader) {
+            loader.classList.remove('opacity-100');
+            loader.classList.add('opacity-0', 'pointer-events-none');
+        }
+    }
+
+    // ====================
+    // 3. AJAX SETUP
+    // ====================
+    setupAjax() {
+        // Intercept link clicks for AJAX navigation
+        document.addEventListener('click', (e) => {
+            const link = e.target.closest('a');
+            if (!link || link.target === '_blank' || link.hasAttribute('download') || 
+                link.getAttribute('href')?.startsWith('http') || 
+                link.getAttribute('href')?.startsWith('#') ||
+                link.getAttribute('href')?.startsWith('mailto') ||
+                link.getAttribute('href')?.startsWith('tel')) {
+                return;
+            }
+
+            const href = link.getAttribute('href');
+            if (href && href !== 'javascript:void(0)') {
+                e.preventDefault();
+                this.loadPage(href);
+            }
+        });
+
+        // Handle browser back/forward
+        window.addEventListener('popstate', (e) => {
+            if (e.state && e.state.url) {
+                this.loadPage(e.state.url);
+            }
+        });
+    }
+
+    async loadPage(url) {
+        this.showLoading();
+        
+        try {
+            const response = await fetch(url, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'text/html'
                 }
             });
 
-            // Handle navigation for SPA-like experience
-            document.addEventListener('click', function(e) {
-                const link = e.target.closest('a');
-                if (link && link.href && !link.target && !link.hasAttribute('download')) {
-                    const href = link.getAttribute('href');
-                    if (href && href.startsWith('/') && !href.includes('#')) {
-                        showLoading();
+            if (!response.ok) throw new Error('Network response was not ok');
+
+            const html = await response.text();
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            
+            // Update main content
+            const mainContent = document.getElementById('main-content');
+            const newContent = doc.querySelector('#main-content') || doc.body;
+            
+            // Smooth transition
+            mainContent.style.opacity = '0';
+            setTimeout(() => {
+                mainContent.innerHTML = newContent.innerHTML;
+                mainContent.style.opacity = '1';
+                
+                // Update URL without reload
+                window.history.pushState({ url: url }, '', url);
+                
+                // Re-initialize components
+                this.setupCartActions();
+                this.setupQuickActions();
+                this.setupEventListeners();
+            }, 300);
+
+        } catch (error) {
+            console.error('Error loading page:', error);
+            window.location.href = url; // Fallback to normal navigation
+        } finally {
+            setTimeout(() => this.hideLoading(), 500);
+        }
+    }
+
+    // ====================
+    // 4. CART ACTIONS
+    // ====================
+    setupCartActions() {
+        console.log('Setting up cart actions...');
+        
+        // Handle add to cart forms
+        document.addEventListener('submit', async (e) => {
+            const form = e.target;
+            
+            // Check if this is a cart form
+            const isCartForm = form.classList.contains('cart-form') || 
+                              (form.action && form.action.includes('cart.add')) ||
+                              form.querySelector('input[name="product_id"]');
+            
+            if (!isCartForm) return;
+            
+            e.preventDefault();
+            e.stopPropagation();
+            
+            try {
+                this.showLoading();
+                
+                const formData = new FormData(form);
+                const submitBtn = form.querySelector('button[type="submit"]');
+                const originalText = submitBtn?.innerHTML;
+                
+                // Disable button and show loading
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<span class="animate-spin">⟳</span> Menambahkan...';
+                }
+                
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                        'Accept': 'application/json'
+                    },
+                    body: formData
+                });
+
+                const data = await response.json();
+                
+                // Restore button
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                    
+                    // Show success animation
+                    if (data.success) {
+                        submitBtn.innerHTML = '<span class="animate-pulse">✓</span> Berhasil!';
+                        submitBtn.classList.remove('from-indigo-600', 'to-purple-600');
+                        submitBtn.classList.add('bg-green-600');
+                        
+                        setTimeout(() => {
+                            submitBtn.innerHTML = originalText;
+                            submitBtn.classList.remove('bg-green-600');
+                            submitBtn.classList.add('from-indigo-600', 'to-purple-600');
+                        }, 1500);
                     }
                 }
-            });
-
-            function showLoading() {
-                const loader = document.getElementById('global-loading');
-                if (loader) {
-                    loader.classList.remove('opacity-0', 'pointer-events-none');
-                    loader.classList.add('opacity-100');
+                
+                if (data.success) {
+                    this.showCartSuccess(data.message, data.cartCount);
+                    this.updateCartCount(data.cartCount);
+                } else {
+                    this.showToast(data.message || 'Gagal menambahkan ke keranjang', 'error');
                 }
+                
+            } catch (error) {
+                console.error('Cart Error:', error);
+                this.showToast('Terjadi kesalahan jaringan', 'error');
+            } finally {
+                this.hideLoading();
             }
-
-            function hideLoading() {
-                const loader = document.getElementById('global-loading');
-                if (loader) {
-                    loader.classList.remove('opacity-100');
-                    loader.classList.add('opacity-0', 'pointer-events-none');
-                }
-            }
-
-            // Hide loading when page fully loads
-            window.addEventListener('load', hideLoading);
-            
-            // Auto-hide loading after 3s max (fallback)
-            setTimeout(hideLoading, 3000);
         });
-    </script>
+    }
+
+    // ====================
+    // 5. QUICK ACTIONS
+    // ====================
+    setupQuickActions() {
+        // Setup quick view modals
+        document.addEventListener('click', (e) => {
+            const quickViewBtn = e.target.closest('[data-quick-view]');
+            if (quickViewBtn) {
+                const productId = quickViewBtn.dataset.productId;
+                this.showQuickView(productId);
+            }
+            
+            // Close modal
+            if (e.target.closest('[data-close-modal]') || e.target.id === 'quick-view-modal') {
+                this.hideQuickView();
+            }
+        });
+    }
+
+    async showQuickView(productId) {
+        // Implement quick view modal
+        console.log('Quick view for product:', productId);
+        // You'll implement this later
+    }
+
+    hideQuickView() {
+        const modal = document.getElementById('quick-view-modal');
+        if (modal) {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+    }
+
+    // ====================
+    // 6. EVENT LISTENERS
+    // ====================
+    setupEventListeners() {
+        // Sort products
+        const sortSelect = document.getElementById('sortProducts');
+        if (sortSelect) {
+            sortSelect.addEventListener('change', (e) => {
+                const url = new URL(window.location);
+                url.searchParams.set('sort', e.target.value);
+                this.loadPage(url.toString());
+            });
+        }
+
+        // Load more products
+        const loadMoreBtn = document.getElementById('load-more');
+        if (loadMoreBtn) {
+            loadMoreBtn.addEventListener('click', async () => {
+                const page = loadMoreBtn.dataset.page;
+                const category = loadMoreBtn.dataset.category;
+                const search = loadMoreBtn.dataset.search;
+                
+                loadMoreBtn.disabled = true;
+                loadMoreBtn.innerHTML = '<span class="animate-spin">⟳</span> Memuat...';
+                
+                try {
+                    const response = await fetch(`?page=${page}&category=${category}&search=${search}&ajax=1`, {
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    });
+                    
+                    const html = await response.text();
+                    
+                    // Append new products
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = html;
+                    const newProducts = tempDiv.querySelector('#products-container');
+                    
+                    if (newProducts) {
+                        document.getElementById('products-container').insertAdjacentHTML('beforeend', newProducts.innerHTML);
+                        loadMoreBtn.dataset.page = parseInt(page) + 1;
+                        
+                        // Check if there are more pages
+                        if (!tempDiv.querySelector('#load-more')) {
+                            loadMoreBtn.remove();
+                        }
+                    }
+                    
+                    loadMoreBtn.disabled = false;
+                    loadMoreBtn.innerHTML = 'Muat Lebih Banyak';
+                    
+                } catch (error) {
+                    console.error('Error loading more products:', error);
+                    loadMoreBtn.innerHTML = 'Error, coba lagi';
+                    setTimeout(() => {
+                        loadMoreBtn.disabled = false;
+                        loadMoreBtn.innerHTML = 'Muat Lebih Banyak';
+                    }, 2000);
+                }
+            });
+        }
+    }
+
+    // ====================
+    // 7. NOTIFICATIONS
+    // ====================
+    showCartSuccess(message, count) {
+        // Remove existing toasts
+        document.querySelectorAll('.cart-success-toast').forEach(toast => toast.remove());
+        
+        const toast = document.createElement('div');
+        toast.className = 'cart-success-toast fixed top-6 right-6 p-4 bg-white rounded-2xl shadow-2xl animate-slide-up z-[9999] border border-gray-200 max-w-sm';
+        toast.innerHTML = `
+            <div class="flex items-start gap-3">
+                <div class="flex-shrink-0">
+                    <div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                        <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                    </div>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="font-bold text-gray-900 text-sm">${message}</div>
+                    <div class="text-xs text-gray-500 mt-1">
+                        Keranjang: <span class="font-bold text-indigo-600">${count} item</span>
+                    </div>
+                    <div class="flex gap-2 mt-3">
+                        <a href="{{ route('cart.index') }}" 
+                           class="flex-1 bg-indigo-600 text-white text-center text-xs font-bold py-2 rounded-lg hover:bg-indigo-700 transition-all">
+                            Lihat Keranjang
+                        </a>
+                        <button onclick="this.closest('.cart-success-toast').remove()" 
+                                class="flex-1 bg-gray-100 text-gray-700 text-center text-xs font-bold py-2 rounded-lg hover:bg-gray-200 transition-all">
+                            Tutup
+                        </button>
+                    </div>
+                </div>
+                <button onclick="this.closest('.cart-success-toast').remove()" 
+                        class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+        `;
+        
+        document.body.appendChild(toast);
+        
+        // Auto remove after 4 seconds
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.remove();
+            }
+        }, 4000);
+    }
+
+    showToast(message, type = 'info') {
+        // Remove existing toasts
+        document.querySelectorAll('.app-toast').forEach(toast => toast.remove());
+        
+        const toast = document.createElement('div');
+        toast.className = `app-toast fixed top-6 right-6 p-4 rounded-xl shadow-hard animate-slide-up z-[100] ${
+            type === 'success' ? 'bg-green-500 text-white' :
+            type === 'error' ? 'bg-red-500 text-white' :
+            'bg-blue-500 text-white'
+        }`;
+        toast.innerHTML = `
+            <div class="flex items-center gap-3">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    ${type === 'success' ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>' :
+                    type === 'error' ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>' :
+                    '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>'}
+                </svg>
+                <span class="font-medium">${message}</span>
+            </div>
+        `;
+        
+        document.body.appendChild(toast);
+        
+        // Remove after 3 seconds
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.remove();
+            }
+        }, 3000);
+    }
+
+    // ====================
+    // 8. CART UI UPDATES
+    // ====================
+    updateCartCount(count) {
+        // Update cart count in header
+        const cartBadges = document.querySelectorAll('[data-cart-count], .cart-badge');
+        cartBadges.forEach(badge => {
+            badge.textContent = count > 99 ? '99+' : count;
+            badge.classList.toggle('hidden', count === 0);
+            
+            // Add animation
+            badge.classList.add('animate-pulse');
+            setTimeout(() => {
+                badge.classList.remove('animate-pulse');
+            }, 500);
+        });
+    }
+
+    // ====================
+    // 9. UTILITY METHODS
+    // ====================
+    debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+
+    throttle(func, limit) {
+        let inThrottle;
+        return function() {
+            const args = arguments;
+            const context = this;
+            if (!inThrottle) {
+                func.apply(context, args);
+                inThrottle = true;
+                setTimeout(() => inThrottle = false, limit);
+            }
+        };
+    }
+}
+
+// ====================
+// INITIALIZE APP
+// ====================
+document.addEventListener('DOMContentLoaded', () => {
+    // Check if app already exists
+    if (!window.app) {
+        window.app = new FadliMartApp();
+    }
     
-    <!-- Additional yield for page-specific scripts -->
+    // Hide loading when page fully loads
+    window.addEventListener('load', () => {
+        setTimeout(() => window.app?.hideLoading(), 500);
+    });
+    
+    // Auto-hide loading after 3s max (fallback)
+    setTimeout(() => window.app?.hideLoading(), 3000);
+    
+    // Handle form submissions for forms without AJAX
+    document.addEventListener('submit', (e) => {
+        const form = e.target;
+        if (form.method === 'post' && !form.classList.contains('cart-form')) {
+            window.app?.showLoading();
+        }
+    });
+});
+</script>
+    
     @yield('scripts')
 </body>
 </html>
