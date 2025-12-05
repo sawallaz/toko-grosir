@@ -4,6 +4,7 @@ document.addEventListener('alpine:init', () => {
         // STATE AWAL
         tab: 'sales',
         lastInvoiceNumber: '{{ $lastInvoiceNumber ?? "" }}',
+        showCustomerModal: false, 
         
         // DATA TRANSAKSI
         cart: [{
@@ -28,7 +29,7 @@ document.addEventListener('alpine:init', () => {
         // CUSTOMER
         customerSearchInput: '', 
         selectedCustomer: null,
-        showCustomerModal: false, 
+       
         customersList: [],
         newCustomerName: '', 
         newCustomerPhone: '',

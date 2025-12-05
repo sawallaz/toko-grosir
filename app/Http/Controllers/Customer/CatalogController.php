@@ -25,7 +25,26 @@ class CatalogController extends Controller
             $query->where('name', 'like', "%{$request->search}%");
         }
 
-        $products = $query->latest()->paginate(20);
+        // Sorting
+        if ($request->sort == 'price_low') {
+            $query->join('product_units', function($join) {
+                $join->on('products.id', '=', 'product_units.product_id')
+                     ->where('product_units.is_base_unit', 1);
+            })->orderBy('product_units.price', 'asc')
+              ->select('products.*');
+        } elseif ($request->sort == 'price_high') {
+            $query->join('product_units', function($join) {
+                $join->on('products.id', '=', 'product_units.product_id')
+                     ->where('product_units.is_base_unit', 1);
+            })->orderBy('product_units.price', 'desc')
+              ->select('products.*');
+        } elseif ($request->sort == 'stock') {
+            $query->orderBy('stock_in_base_unit', 'DESC');
+        } else {
+            $query->latest();
+        }
+
+        $products = $query->paginate(20);
         $categories = Category::has('products')->orderBy('name')->get();
 
         return view('customer.home', compact('products', 'categories'));

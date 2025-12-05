@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\StockController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\UnitController;
 use App\Http\Controllers\Admin\CashierController;
+use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Cashier\PosController;
 use App\Http\Controllers\Customer\CatalogController;
 use App\Http\Controllers\Customer\OrderController;
@@ -40,9 +41,9 @@ require __DIR__.'/auth.php';
 // [AMAN] Tambahkan middleware 'role:admin'
 Route::middleware(['auth', 'verified', 'role:admin'])->prefix('admin')->name('admin.')->group(function () {
     
-    Route::get('/dashboard', function () {
-        return view('admin.dashboard');
-    })->name('dashboard');
+     // [UPDATE] Gunakan Controller Dashboard
+    Route::get('/dashboard', [App\Http\Controllers\Admin\DashboardController::class, 'index'])->name('dashboard');
+
 
     // 1. MANAJEMEN PRODUK
     Route::resource('products', ProductController::class)->except(['show']);
@@ -73,6 +74,10 @@ Route::middleware(['auth', 'verified', 'role:admin'])->prefix('admin')->name('ad
     Route::resource('cashiers', CashierController::class)->except(['show', 'create', 'edit']);
     Route::get('cashiers/{cashier}/edit-json', [CashierController::class, 'editJson'])->name('cashiers.edit-json');
     Route::post('cashiers/{cashier}/toggle-status', [CashierController::class, 'toggleStatus'])->name('cashiers.toggle-status');
+
+    Route::get('/reports/sales', [ReportController::class, 'sales'])->name('reports.sales');
+    Route::get('/reports/sales/export', [ReportController::class, 'exportExcel'])->name('reports.sales.export'); // [BARU]
+    Route::delete('/reports/sales/bulk-delete', [ReportController::class, 'bulkDestroy'])->name('reports.sales.bulk_delete');
 });
 
 // ====================================================
@@ -106,35 +111,20 @@ Route::middleware(['auth', 'verified', 'role:kasir,admin'])->group(function () {
 
 // Halaman Perlu Login
 Route::middleware(['auth', 'verified'])->group(function () {
-    // AJAX Cart
-    Route::post('/cart/add', [OrderController::class, 'addToCart'])->name('cart.add');
-    Route::patch('/cart/update/{key}', [OrderController::class, 'updateCart'])->name('cart.update');
-    Route::delete('/cart/remove/{key}', [OrderController::class, 'removeFromCart'])->name('cart.remove');
     
-    // Quick View
-    Route::get('/product/{id}/quick-view', [OrderController::class, 'quickView'])->name('product.quick-view');
-    
-    // Load More Products
-    Route::get('/products/load-more', [OrderController::class, 'loadMore'])->name('products.load-more');
-    
-    // Existing routes...
+    // Keranjang Belanja
     Route::get('/cart', [OrderController::class, 'cart'])->name('cart.index');
-    Route::post('/cart/clear', [OrderController::class, 'clearCart'])->name('cart.clear');
+    Route::post('/cart/add', [OrderController::class, 'addToCart'])->name('cart.add');
+    Route::post('/cart/update/{id}', [OrderController::class, 'updateCart'])->name('cart.update');
+    Route::delete('/cart/remove/{id}', [OrderController::class, 'removeFromCart'])->name('cart.remove');
+    
+    // Checkout & Pembayaran
     Route::post('/checkout', [OrderController::class, 'checkout'])->name('checkout');
-    Route::get('/checkout', [OrderController::class, 'showCheckoutForm'])->name('checkout.form');
+    
+    // Riwayat Pesanan
     Route::get('/my-orders', [OrderController::class, 'index'])->name('orders.index');
     Route::get('/my-orders/{id}', [OrderController::class, 'show'])->name('orders.show');
     Route::post('/my-orders/{id}/cancel', [OrderController::class, 'cancelOrder'])->name('orders.cancel');
-
-     // Payment Routes
-    Route::get('/payment/{order_id}', [OrderController::class, 'showPayment'])->name('payment.show');
-    Route::get('/payment/{order_id}/finish', [OrderController::class, 'paymentFinish'])->name('payment.finish');
-    Route::get('/payment/{order_id}/error', [OrderController::class, 'paymentError'])->name('payment.error');
-    Route::get('/payment/{order_id}/pending', [OrderController::class, 'paymentPending'])->name('payment.pending');
-    Route::get('/payment/{order_id}/check-status', [OrderController::class, 'checkPaymentStatus'])->name('payment.check-status');
-    
-    // Midtrans Webhook
-    Route::post('/payment/notification', [OrderController::class, 'paymentNotification'])->name('payment.notification');
 
      // Profile Routes
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

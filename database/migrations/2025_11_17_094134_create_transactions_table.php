@@ -8,55 +8,44 @@ return new class extends Migration
 {
     public function up(): void
     {
+         // 1. Tabel Header Transaksi (Nota)
         Schema::create('transactions', function (Blueprint $table) {
             $table->id();
-            $table->string('invoice_number')->unique();
+            $table->string('invoice_number')->unique(); // Cth: INV-20231101-001
+            
+            // Kasir yang melayani (Bisa NULL jika pesanan online baru masuk dan belum diproses)
+            $table->foreignId('user_id')
+                  ->nullable()
+                  ->constrained('users')
+                  ->onDelete('restrict');
 
-            // Kasir
-            $table->foreignId('user_id')->nullable()->constrained('users')->onDelete('restrict');
-
-            // Pembeli Online
-            $table->foreignId('buyer_id')->nullable()->constrained('users')->onDelete('set null');
-
-            // Member / Customer
-            $table->foreignId('customer_id')->nullable()->constrained('customers')->onDelete('set null');
-
-            // Nominal
-            $table->decimal('total_amount', 15, 2);
-            $table->decimal('pay_amount', 15, 2)->default(0);
-            $table->decimal('change_amount', 15, 2)->default(0);
-            $table->integer('total_items')->default(0);
-
-            // Payment
-            $table->string('payment_method')->nullable(); // dari add-col migration
-            $table->string('payment_status')->default('pending'); 
-            $table->string('payment_channel')->nullable();
-
-            // Midtrans
-            $table->string('midtrans_order_id')->nullable()->unique();
-            $table->string('midtrans_snap_token')->nullable();
-            $table->string('midtrans_transaction_id')->nullable();
-            $table->text('midtrans_response')->nullable();
-
-            $table->timestamp('paid_at')->nullable();
-            $table->timestamp('expired_at')->nullable();
-
-            // Type transaksi
-            $table->enum('type', ['pos', 'online'])->default('pos');
-
-            // Status transaksi
-            $table->enum('status', ['pending', 'process', 'ready', 'completed', 'cancelled'])
-                  ->default('completed');
-
-            // Pengiriman
-            $table->enum('delivery_type', ['pickup', 'delivery'])->default('pickup');
-            $table->text('delivery_address')->nullable();
-            $table->text('delivery_note')->nullable();
-
-            // Tracking
-            $table->timestamp('ready_at')->nullable();
-
-            $table->timestamps();
+            // [BARU] Pembeli Online (User Login) - Terpisah dari Kasir
+            $table->foreignId('buyer_id')
+                  ->nullable()
+                  ->constrained('users')
+                  ->onDelete('set null');
+            
+            // Pelanggan Member (Data Offline/Manual)
+            $table->foreignId('customer_id')
+                  ->nullable()
+                  ->constrained('customers')
+                  ->onDelete('set null');
+            
+            // Data Keuangan
+            $table->decimal('total_amount', 15, 2);           // Total Tagihan
+            $table->decimal('pay_amount', 15, 2)->default(0); // Uang Dibayar
+            $table->decimal('change_amount', 15, 2)->default(0); // Kembalian
+            $table->integer('total_items')->default(0);       // Total Qty Barang
+            
+            // Metode & Status
+            $table->string('payment_method')->default('cash'); // cash, transfer, qris
+            $table->string('snap_token')->nullable();          // Token Midtrans (Khusus Online)
+            
+            $table->enum('type', ['pos', 'online'])->default('pos'); 
+            // Status diperlengkap: pending (masuk), process (disiapkan), completed (selesai), cancelled (batal)
+            $table->enum('status', ['pending', 'process', 'completed', 'cancelled'])->default('completed');
+            
+            $table->timestamps(); // Created_at (Waktu Transaksi)
         });
     }
 

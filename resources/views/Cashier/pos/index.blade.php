@@ -297,16 +297,16 @@
                             
                             <!-- Baris kosong untuk tambah otomatis -->
                             <tr>
-    <td colspan="7" class="p-3 text-center bg-gradient-to-r from-gray-50 to-white border-t border-gray-200">
-        <button @click="addRow()" 
-                class="bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-4 py-2.5 rounded-md font-semibold text-sm shadow transition-all duration-150 hover:bg-gradient-to-r hover:from-indigo-600 hover:to-purple-600 hover:shadow-md flex items-center gap-1 mx-auto">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-            </svg>
-            Tambah Baris Baru
-        </button>
-    </td>
-</tr>
+                                <td colspan="7" class="p-3 text-center bg-gradient-to-r from-gray-50 to-white border-t border-gray-200">
+                                    <button @click="addRow()" 
+                                            class="bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-4 py-2.5 rounded-md font-semibold text-sm shadow transition-all duration-150 hover:bg-gradient-to-r hover:from-indigo-600 hover:to-purple-600 hover:shadow-md flex items-center gap-1 mx-auto">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                        </svg>
+                                        Tambah Baris Baru
+                                    </button>
+                                </td>
+                            </tr>
                         </tbody>
                         </table>
                     </div>
@@ -669,310 +669,311 @@
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- MODAL DETAIL PESANAN ONLINE -->
-    <div x-show="showOnlineDetailModal" 
-         class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70 backdrop-blur-sm" 
-         x-cloak
-         style="display: none;">
-        
-        <div class="bg-white rounded-2xl shadow-2xl w-[600px] max-h-[85vh] flex flex-col animate-fadeIn" 
-             @click.away="showOnlineDetailModal = false">
-            <!-- Header Modal -->
-            <div class="px-8 py-6 border-b bg-gradient-to-r from-indigo-600 to-purple-600 rounded-t-2xl">
-                <div class="flex justify-between items-center">
-                    <h3 class="text-xl font-bold text-white flex items-center gap-3">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
-                        </svg>
-                        Detail Pesanan Online
-                    </h3>
-                    <button @click="showOnlineDetailModal = false" 
-                            :disabled="isProcessingOnline"
-                            class="text-white hover:text-gray-200 font-bold text-2xl disabled:opacity-50 transition">
-                        ✕
-                    </button>
-                </div>
-            </div>
+        <!-- MODAL DETAIL PESANAN ONLINE -->
+        <div x-show="showOnlineDetailModal" 
+            class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70 backdrop-blur-sm" 
+            x-cloak
+            style="display: none;">
             
-            <!-- Body Modal -->
-            <div class="p-8 overflow-y-auto flex-1 bg-gradient-to-b from-gray-50 to-white modal-scrollbar">
-                <template x-if="onlineOrder">
-                    <div class="space-y-8">
-                        <!-- Info Customer -->
-                        <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-lg">
-                            <div class="grid grid-cols-2 gap-6">
-                                <div>
-                                    <div class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Info Pelanggan</div>
-                                    <div class="font-bold text-xl text-gray-800 mb-1">
-                                        <template x-if="onlineOrder.customer">
-                                            <span x-text="onlineOrder.customer.name"></span>
-                                        </template>
-                                        <template x-if="!onlineOrder.customer && onlineOrder.buyer">
-                                            <span x-text="onlineOrder.buyer.name"></span>
-                                        </template>
-                                        <template x-if="!onlineOrder.customer && !onlineOrder.buyer">
-                                            <span>Guest</span>
-                                        </template>
-                                    </div>
-                                    <div class="text-sm text-gray-500">
-                                        Waktu Order: <span x-text="new Date(onlineOrder.created_at).toLocaleString('id-ID')"></span>
-                                    </div>
-                                </div>
-                                <div class="text-right">
-                                    <div class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Invoice</div>
-                                    <div class="font-mono font-bold text-2xl text-indigo-600 mb-2" 
-                                         x-text="onlineOrder.invoice_number"></div>
-                                    <div class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-yellow-100 text-yellow-800">
-                                        STATUS: <span x-text="onlineOrder.status.toUpperCase()" class="ml-1"></span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Daftar Produk -->
-                        <div class="bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden">
-                            <div class="px-6 py-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b">
-                                <div class="font-bold text-gray-800">Daftar Barang</div>
-                            </div>
-                            <div class="divide-y divide-gray-100">
-                                <template x-for="d in onlineOrder.details" :key="d.id">
-                                    <div class="px-6 py-4 hover:bg-gray-50/50 transition-colors">
-                                        <div class="flex justify-between items-center">
-                                            <div class="flex-1">
-                                                <div class="font-bold text-gray-800 text-lg" 
-                                                     x-text="d.product_name || 'Produk'"></div>
-                                                <div class="text-sm text-gray-500 mt-1">
-                                                    <span x-text="d.quantity"></span> x 
-                                                    <span x-text="d.product_unit?.unit?.name || 'Satuan'"></span> 
-                                                    @ <span x-text="formatRupiah(d.price_at_purchase)"></span>
-                                                </div>
-                                            </div>
-                                            <div class="text-right">
-                                                <div class="font-bold text-xl text-indigo-600" 
-                                                     x-text="formatRupiah(d.subtotal)"></div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </template>
-                            </div>
-                        </div>
-
-                        <!-- Total & Pembayaran -->
-                        <div class="space-y-6">
-                            <!-- Total -->
-                            <div class="flex justify-between items-center p-6 bg-gradient-to-r from-indigo-50 to-blue-50 rounded-xl border border-indigo-100">
-                                <span class="font-bold text-2xl text-gray-800">TOTAL TAGIHAN</span>
-                                <span class="font-black text-3xl text-indigo-700" 
-                                      x-text="formatRupiah(onlineOrder.total_amount)">
-                                </span>
-                            </div>
-
-                            <!-- Input Pembayaran -->
-                            <div class="bg-gradient-to-r from-amber-50 to-yellow-50 p-6 rounded-xl border-2 border-amber-200 shadow-lg">
-                                <div class="mb-6">
-                                    <label class="block text-sm font-bold text-gray-700 uppercase tracking-wider mb-3">
-                                        💵 Uang Diterima (Rp)
-                                    </label>
-                                    <div class="relative">
-                                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                            <span class="text-gray-500 font-bold text-xl">Rp</span>
-                                        </div>
-                                        <input type="number" 
-                                               x-model="onlinePayAmount" 
-                                               @input="onlinePayAmount = Math.max(0, onlinePayAmount)"
-                                               :disabled="isProcessingOnline"
-                                               class="w-full pl-14 pr-6 py-4 text-right font-mono font-bold text-2xl border-3 border-gray-300 rounded-lg focus:ring-4 focus:ring-green-100 focus:border-green-500 disabled:bg-gray-100 transition-all" 
-                                               placeholder="0"
-                                               min="0"
-                                               step="500">
-                                    </div>
-                                </div>
-                                <div class="text-right">
-                                    <div class="text-sm font-bold text-gray-600 mb-2">Kembalian</div>
-                                    <div class="font-mono font-black text-3xl" 
-                                         :class="onlineChangeAmount >= 0 ? 'text-green-600' : 'text-red-500'" 
-                                         x-text="formatRupiah(onlineChangeAmount)">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </template>
-            </div>
-
-            <!-- Footer Actions -->
-            <div class="px-8 py-6 border-t bg-white rounded-b-2xl flex justify-between items-center shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
-                <button @click="showOnlineDetailModal = false" 
-                        :disabled="isProcessingOnline"
-                        class="px-6 py-3 bg-gray-100 text-gray-600 rounded-lg font-bold hover:bg-gray-200 disabled:opacity-50 transition-all">
-                    Batal
-                </button>
+            <div class="bg-white rounded-2xl shadow-2xl w-[600px] max-h-[85vh] flex flex-col animate-fadeIn" 
+                @click.away="showOnlineDetailModal = false">
                 
-                <button @click="processOnlineOrder()" 
-                        :disabled="onlineChangeAmount < 0 || isProcessingOnline"
-                        :class="onlineChangeAmount < 0 ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-2xl hover:-translate-y-1'"
-                        class="px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-bold shadow-xl transition-all transform flex items-center justify-center gap-3 min-w-[200px]">
-                    <template x-if="!isProcessingOnline">
-                        <span class="flex items-center gap-3 text-lg">
+                <!-- Header Modal -->
+                <div class="px-8 py-6 border-b bg-gradient-to-r from-indigo-600 to-purple-600 rounded-t-2xl">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-xl font-bold text-white flex items-center gap-3">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
                             </svg>
-                            BAYAR & SELESAIKAN
-                        </span>
-                    </template>
-                    <template x-if="isProcessingOnline">
-                        <span class="flex items-center gap-3">
-                            <svg class="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            Memproses Pembayaran...
-                        </span>
-                    </template>
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL CUSTOMER -->
-    <div x-show="showCustomerModal" 
-         class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70 backdrop-blur-sm" 
-         x-cloak
-         style="display: none;">
-        
-        <div class="bg-white rounded-2xl shadow-2xl w-[700px] max-h-[80vh] flex flex-col animate-fadeIn" 
-             @click.away="showCustomerModal = false">
-            
-            <!-- Header Modal -->
-            <div class="px-8 py-6 border-b bg-gradient-to-r from-green-600 to-emerald-600 rounded-t-2xl">
-                <div class="flex justify-between items-center">
-                    <h3 class="text-xl font-bold text-white flex items-center gap-3">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
-                        </svg>
-                        Kelola Data Member
-                    </h3>
-                    <button @click="showCustomerModal = false" 
-                            class="text-white hover:text-gray-200 font-bold text-2xl transition">
-                        ✕
-                    </button>
-                </div>
-            </div>
-
-            <!-- Form Input -->
-            <div class="p-8 border-b bg-gradient-to-r from-gray-50 to-white">
-                <div class="flex gap-4">
-                    <div class="flex-1">
-                        <label class="block text-sm font-bold text-gray-700 mb-2">Nama Member</label>
-                        <input type="text" x-model="newCustomerName" 
-                               class="w-full border-2 border-gray-300 rounded-lg text-sm h-11 px-4 focus:ring-2 focus:ring-green-500 focus:border-green-500" 
-                               placeholder="Masukkan nama member..." 
-                               @keydown.enter="saveCustomer()">
-                    </div>
-                    <div class="w-48">
-                        <label class="block text-sm font-bold text-gray-700 mb-2">No. HP</label>
-                        <input type="text" x-model="newCustomerPhone" 
-                               @input="newCustomerPhone = newCustomerPhone.replace(/[^0-9]/g, '')"
-                               class="w-full border-2 border-gray-300 rounded-lg text-sm h-11 px-4 focus:ring-2 focus:ring-green-500 focus:border-green-500" 
-                               placeholder="0812..." 
-                               @keydown.enter="saveCustomer()"
-                               maxlength="15">
-                    </div>
-                    <div class="pt-8">
-                        <button @click="saveCustomer()" 
-                                class="h-11 bg-gradient-to-r from-green-600 to-emerald-600 text-white px-6 rounded-lg font-bold hover:from-green-700 hover:to-emerald-700 shadow-lg transition-all">
-                            + Tambah
+                            Detail Pesanan Online
+                        </h3>
+                        <button @click="showOnlineDetailModal = false" 
+                                :disabled="isProcessingOnline"
+                                class="text-white hover:text-gray-200 font-bold text-2xl disabled:opacity-50 transition">
+                            ✕
                         </button>
                     </div>
                 </div>
-            </div>
-
-            <!-- Daftar Member -->
-            <div class="flex-1 overflow-auto p-6 modal-scrollbar">
-                <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gradient-to-r from-gray-50 to-gray-100">
-                            <tr>
-                                <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Nama Member</th>
-                                <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">No. HP</th>
-                                <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider">Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100 bg-white">
-                            <template x-for="cust in customersList" :key="cust.id">
-                                <tr class="hover:bg-gradient-to-r hover:from-indigo-50/30 hover:to-blue-50/30 transition-colors"
-                                    :class="{'bg-indigo-50/50': cust.id === editingCustId}">
-                                    
-                                    <!-- Tampilan Normal -->
-                                    <td class="px-6 py-4" x-show="editingCustId !== cust.id" 
-                                        @click="selectCustomerFromList(cust)">
-                                        <div class="font-medium text-gray-900" x-text="cust.name"></div>
-                                    </td>
-                                    <td class="px-6 py-4" x-show="editingCustId !== cust.id" 
-                                        @click="selectCustomerFromList(cust)">
-                                        <div class="font-mono text-gray-600" x-text="cust.phone || '-'"></div>
-                                    </td>
-                                    <td class="px-6 py-4 text-center" x-show="editingCustId !== cust.id">
-                                        <div class="flex justify-center gap-2">
-                                            <button @click.stop="editCustomer(cust)" 
-                                                    class="text-blue-600 hover:text-blue-800 font-bold text-sm px-3 py-1.5 bg-blue-50 rounded-lg hover:bg-blue-100 transition-all">
-                                                Edit
-                                            </button>
-                                            <button @click.stop="deleteCustomer(cust.id)" 
-                                                    class="text-red-600 hover:text-red-800 font-bold text-sm px-3 py-1.5 bg-red-50 rounded-lg hover:bg-red-100 transition-all">
-                                                Hapus
-                                            </button>
+                
+                <!-- Body Modal -->
+                <div class="p-8 overflow-y-auto flex-1 bg-gradient-to-b from-gray-50 to-white modal-scrollbar">
+                    <template x-if="onlineOrder">
+                        <div class="space-y-8">
+                            <!-- Info Customer -->
+                            <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-lg">
+                                <div class="grid grid-cols-2 gap-6">
+                                    <div>
+                                        <div class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Info Pelanggan</div>
+                                        <div class="font-bold text-xl text-gray-800 mb-1">
+                                            <template x-if="onlineOrder.customer">
+                                                <span x-text="onlineOrder.customer.name"></span>
+                                            </template>
+                                            <template x-if="!onlineOrder.customer && onlineOrder.buyer">
+                                                <span x-text="onlineOrder.buyer.name"></span>
+                                            </template>
+                                            <template x-if="!onlineOrder.customer && !onlineOrder.buyer">
+                                                <span>Guest</span>
+                                            </template>
                                         </div>
-                                    </td>
+                                        <div class="text-sm text-gray-500">
+                                            Waktu Order: <span x-text="new Date(onlineOrder.created_at).toLocaleString('id-ID')"></span>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Invoice</div>
+                                        <div class="font-mono font-bold text-2xl text-indigo-600 mb-2" 
+                                            x-text="onlineOrder.invoice_number"></div>
+                                        <div class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-yellow-100 text-yellow-800">
+                                            STATUS: <span x-text="onlineOrder.status.toUpperCase()" class="ml-1"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
 
-                                    <!-- Tampilan Edit -->
-                                    <td class="px-6 py-4" x-show="editingCustId === cust.id">
-                                        <input type="text" x-model="editCustName" 
-                                               class="w-full border-2 border-gray-300 rounded-lg text-sm h-9 px-3 focus:ring-2 focus:ring-green-500 focus:border-green-500">
-                                    </td>
-                                    <td class="px-6 py-4" x-show="editingCustId === cust.id">
-                                        <input type="text" x-model="editCustPhone" 
-                                               @input="editCustPhone = editCustPhone.replace(/[^0-9]/g, '')"
-                                               class="w-full border-2 border-gray-300 rounded-lg text-sm h-9 px-3 focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                                               maxlength="15">
-                                    </td>
-                                    <td class="px-6 py-4 text-center" x-show="editingCustId === cust.id">
-                                        <div class="flex justify-center gap-2">
-                                            <button @click="updateCustomer(cust.id)" 
-                                                    class="text-green-600 hover:text-green-800 font-bold text-sm px-3 py-1.5 bg-green-50 rounded-lg hover:bg-green-100 transition-all">
-                                                Simpan
-                                            </button>
-                                            <button @click="editingCustId = null" 
-                                                    class="text-gray-600 hover:text-gray-800 font-bold text-sm px-3 py-1.5 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all">
-                                                Batal
-                                            </button>
+                            <!-- Daftar Produk -->
+                            <div class="bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden">
+                                <div class="px-6 py-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b">
+                                    <div class="font-bold text-gray-800">Daftar Barang</div>
+                                </div>
+                                <div class="divide-y divide-gray-100">
+                                    <template x-for="d in onlineOrder.details" :key="d.id">
+                                        <div class="px-6 py-4 hover:bg-gray-50/50 transition-colors">
+                                            <div class="flex justify-between items-center">
+                                                <div class="flex-1">
+                                                    <div class="font-bold text-gray-800 text-lg" 
+                                                        x-text="d.product_name || 'Produk'"></div>
+                                                    <div class="text-sm text-gray-500 mt-1">
+                                                        <span x-text="d.quantity"></span> x 
+                                                        <span x-text="d.product_unit?.unit?.name || 'Satuan'"></span> 
+                                                        @ <span x-text="formatRupiah(d.price_at_purchase)"></span>
+                                                    </div>
+                                                </div>
+                                                <div class="text-right">
+                                                    <div class="font-bold text-xl text-indigo-600" 
+                                                        x-text="formatRupiah(d.subtotal)"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+
+                            <!-- Total & Pembayaran -->
+                            <div class="space-y-6">
+                                <!-- Total -->
+                                <div class="flex justify-between items-center p-6 bg-gradient-to-r from-indigo-50 to-blue-50 rounded-xl border border-indigo-100">
+                                    <span class="font-bold text-2xl text-gray-800">TOTAL TAGIHAN</span>
+                                    <span class="font-black text-3xl text-indigo-700" 
+                                        x-text="formatRupiah(onlineOrder.total_amount)">
+                                    </span>
+                                </div>
+
+                                <!-- Input Pembayaran -->
+                                <div class="bg-gradient-to-r from-amber-50 to-yellow-50 p-6 rounded-xl border-2 border-amber-200 shadow-lg">
+                                    <div class="mb-6">
+                                        <label class="block text-sm font-bold text-gray-700 uppercase tracking-wider mb-3">
+                                            💵 Uang Diterima (Rp)
+                                        </label>
+                                        <div class="relative">
+                                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                                <span class="text-gray-500 font-bold text-xl">Rp</span>
+                                            </div>
+                                            <input type="number" 
+                                                x-model="onlinePayAmount" 
+                                                @input="onlinePayAmount = Math.max(0, onlinePayAmount)"
+                                                :disabled="isProcessingOnline"
+                                                class="w-full pl-14 pr-6 py-4 text-right font-mono font-bold text-2xl border-3 border-gray-300 rounded-lg focus:ring-4 focus:ring-green-100 focus:border-green-500 disabled:bg-gray-100 transition-all" 
+                                                placeholder="0"
+                                                min="0"
+                                                step="500">
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="text-sm font-bold text-gray-600 mb-2">Kembalian</div>
+                                        <div class="font-mono font-black text-3xl" 
+                                            :class="onlineChangeAmount >= 0 ? 'text-green-600' : 'text-red-500'" 
+                                            x-text="formatRupiah(onlineChangeAmount)">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+                
+                <!-- Footer Actions -->
+                <div class="px-8 py-6 border-t bg-white rounded-b-2xl flex justify-between items-center shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
+                    <button @click="showOnlineDetailModal = false" 
+                            :disabled="isProcessingOnline"
+                            class="px-6 py-3 bg-gray-100 text-gray-600 rounded-lg font-bold hover:bg-gray-200 disabled:opacity-50 transition-all">
+                        Batal
+                    </button>
+                    
+                    <button @click="processOnlineOrder()" 
+                            :disabled="onlineChangeAmount < 0 || isProcessingOnline"
+                            :class="onlineChangeAmount < 0 ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-2xl hover:-translate-y-1'"
+                            class="px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-bold shadow-xl transition-all transform flex items-center justify-center gap-3 min-w-[200px]">
+                        <template x-if="!isProcessingOnline">
+                            <span class="flex items-center gap-3 text-lg">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                BAYAR & SELESAIKAN
+                            </span>
+                        </template>
+                        <template x-if="isProcessingOnline">
+                            <span class="flex items-center gap-3">
+                                <svg class="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                Memproses Pembayaran...
+                            </span>
+                        </template>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL CUSTOMER -->
+        <div x-show="showCustomerModal" 
+             class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70 backdrop-blur-sm" 
+             x-cloak
+             style="display: none;">
+            
+            <div class="bg-white rounded-2xl shadow-2xl w-[700px] max-h-[80vh] flex flex-col animate-fadeIn" 
+                 @click.away="showCustomerModal = false">
+                
+                <!-- Header Modal -->
+                <div class="px-8 py-6 border-b bg-gradient-to-r from-green-600 to-emerald-600 rounded-t-2xl">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-xl font-bold text-white flex items-center gap-3">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                            </svg>
+                            Kelola Data Member
+                        </h3>
+                        <button @click="showCustomerModal = false" 
+                                class="text-white hover:text-gray-200 font-bold text-2xl transition">
+                            ✕
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Form Input -->
+                <div class="p-8 border-b bg-gradient-to-r from-gray-50 to-white">
+                    <div class="flex gap-4">
+                        <div class="flex-1">
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Nama Member</label>
+                            <input type="text" x-model="newCustomerName" 
+                                   class="w-full border-2 border-gray-300 rounded-lg text-sm h-11 px-4 focus:ring-2 focus:ring-green-500 focus:border-green-500" 
+                                   placeholder="Masukkan nama member..." 
+                                   @keydown.enter="saveCustomer()">
+                        </div>
+                        <div class="w-48">
+                            <label class="block text-sm font-bold text-gray-700 mb-2">No. HP</label>
+                            <input type="text" x-model="newCustomerPhone" 
+                                   @input="newCustomerPhone = newCustomerPhone.replace(/[^0-9]/g, '')"
+                                   class="w-full border-2 border-gray-300 rounded-lg text-sm h-11 px-4 focus:ring-2 focus:ring-green-500 focus:border-green-500" 
+                                   placeholder="0812..." 
+                                   @keydown.enter="saveCustomer()"
+                                   maxlength="15">
+                        </div>
+                        <div class="pt-8">
+                            <button @click="saveCustomer()" 
+                                    class="h-11 bg-gradient-to-r from-green-600 to-emerald-600 text-white px-6 rounded-lg font-bold hover:from-green-700 hover:to-emerald-700 shadow-lg transition-all">
+                                + Tambah
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Daftar Member -->
+                <div class="flex-1 overflow-auto p-6 modal-scrollbar">
+                    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gradient-to-r from-gray-50 to-gray-100">
+                                <tr>
+                                    <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Nama Member</th>
+                                    <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">No. HP</th>
+                                    <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100 bg-white">
+                                <template x-for="cust in customersList" :key="cust.id">
+                                    <tr class="hover:bg-gradient-to-r hover:from-indigo-50/30 hover:to-blue-50/30 transition-colors"
+                                        :class="{'bg-indigo-50/50': cust.id === editingCustId}">
+                                        
+                                        <!-- Tampilan Normal -->
+                                        <td class="px-6 py-4" x-show="editingCustId !== cust.id" 
+                                            @click="selectCustomerFromList(cust)">
+                                            <div class="font-medium text-gray-900" x-text="cust.name"></div>
+                                        </td>
+                                        <td class="px-6 py-4" x-show="editingCustId !== cust.id" 
+                                            @click="selectCustomerFromList(cust)">
+                                            <div class="font-mono text-gray-600" x-text="cust.phone || '-'"></div>
+                                        </td>
+                                        <td class="px-6 py-4 text-center" x-show="editingCustId !== cust.id">
+                                            <div class="flex justify-center gap-2">
+                                                <button @click.stop="editCustomer(cust)" 
+                                                        class="text-blue-600 hover:text-blue-800 font-bold text-sm px-3 py-1.5 bg-blue-50 rounded-lg hover:bg-blue-100 transition-all">
+                                                    Edit
+                                                </button>
+                                                <button @click.stop="deleteCustomer(cust.id)" 
+                                                        class="text-red-600 hover:text-red-800 font-bold text-sm px-3 py-1.5 bg-red-50 rounded-lg hover:bg-red-100 transition-all">
+                                                    Hapus
+                                                </button>
+                                            </div>
+                                        </td>
+
+                                        <!-- Tampilan Edit -->
+                                        <td class="px-6 py-4" x-show="editingCustId === cust.id">
+                                            <input type="text" x-model="editCustName" 
+                                                   class="w-full border-2 border-gray-300 rounded-lg text-sm h-9 px-3 focus:ring-2 focus:ring-green-500 focus:border-green-500">
+                                        </td>
+                                        <td class="px-6 py-4" x-show="editingCustId === cust.id">
+                                            <input type="text" x-model="editCustPhone" 
+                                                   @input="editCustPhone = editCustPhone.replace(/[^0-9]/g, '')"
+                                                   class="w-full border-2 border-gray-300 rounded-lg text-sm h-9 px-3 focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                                                   maxlength="15">
+                                        </td>
+                                        <td class="px-6 py-4 text-center" x-show="editingCustId === cust.id">
+                                            <div class="flex justify-center gap-2">
+                                                <button @click="updateCustomer(cust.id)" 
+                                                        class="text-green-600 hover:text-green-800 font-bold text-sm px-3 py-1.5 bg-green-50 rounded-lg hover:bg-green-100 transition-all">
+                                                    Simpan
+                                                </button>
+                                                <button @click="editingCustId = null" 
+                                                        class="text-gray-600 hover:text-gray-800 font-bold text-sm px-3 py-1.5 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all">
+                                                    Batal
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </template>
+                                
+                                <!-- Empty State -->
+                                <tr x-show="customersList.length === 0">
+                                    <td colspan="3" class="px-6 py-16 text-center">
+                                        <div class="text-gray-400">
+                                            <svg class="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                                            </svg>
+                                            <div class="text-lg font-medium text-gray-500 mb-2">Belum ada member</div>
+                                            <div class="text-sm text-gray-400">Tambahkan member baru menggunakan form di atas</div>
                                         </div>
                                     </td>
                                 </tr>
-                            </template>
-                            
-                            <!-- Empty State -->
-                            <tr x-show="customersList.length === 0">
-                                <td colspan="3" class="px-6 py-16 text-center">
-                                    <div class="text-gray-400">
-                                        <svg class="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
-                                        </svg>
-                                        <div class="text-lg font-medium text-gray-500 mb-2">Belum ada member</div>
-                                        <div class="text-sm text-gray-400">Tambahkan member baru menggunakan form di atas</div>
-                                    </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-            </div>
-            
-            <!-- Footer -->
-            <div class="px-8 py-4 border-t bg-gray-50 text-sm text-gray-600 rounded-b-2xl">
-                Total <span x-text="customersList.length"></span> member terdaftar
+                
+                <!-- Footer -->
+                <div class="px-8 py-4 border-t bg-gray-50 text-sm text-gray-600 rounded-b-2xl">
+                    Total <span x-text="customersList.length"></span> member terdaftar
+                </div>
             </div>
         </div>
     </div>
@@ -989,4 +990,3 @@
     @include('cashier.pos.script')
 </body>
 </html>
-
