@@ -8,7 +8,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-         // 1. Tabel Header Transaksi (Nota)
+        // 1. Tabel Header Transaksi (Nota)
         Schema::create('transactions', function (Blueprint $table) {
             $table->id();
             $table->string('invoice_number')->unique(); // Cth: INV-20231101-001
@@ -42,10 +42,17 @@ return new class extends Migration
             $table->string('snap_token')->nullable();          // Token Midtrans (Khusus Online)
             
             $table->enum('type', ['pos', 'online'])->default('pos'); 
-            // Status diperlengkap: pending (masuk), process (disiapkan), completed (selesai), cancelled (batal)
-            $table->enum('status', ['pending', 'process', 'completed', 'cancelled'])->default('completed');
             
-            $table->timestamps(); // Created_at (Waktu Transaksi)
+            // PERBAIKAN: Tambahkan status 'ready' ke dalam enum
+            $table->enum('status', ['pending', 'process', 'ready', 'completed', 'cancelled'])
+                  ->default('pending'); // Default pending untuk pesanan online
+            
+            // OPSIONAL: Timestamps untuk tracking status (jika ingin ditambahkan)
+            $table->timestamp('process_at')->nullable();
+            $table->timestamp('ready_at')->nullable();
+            $table->timestamp('completed_at')->nullable();
+            
+            $table->timestamps(); // Created_at (Waktu Transaksi), updated_at
         });
     }
 

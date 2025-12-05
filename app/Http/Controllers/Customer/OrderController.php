@@ -79,15 +79,28 @@ class OrderController extends Controller
         return back()->with('success', 'Produk masuk keranjang!');
     }
 
-    public function removeFromCart($key)
+    // Hapus Item (Support Single & Bulk)
+    public function removeFromCart(Request $request, $key)
     {
         $cart = session()->get('cart');
-        if (isset($cart[$key])) {
-            unset($cart[$key]);
-            session()->put('cart', $cart);
+
+        if ($key === 'bulk') {
+            // Hapus Banyak
+            $keys = json_decode($request->input('keys'), true);
+            if (is_array($keys)) {
+                foreach ($keys as $k) {
+                    unset($cart[$k]);
+                }
+            }
+        } else {
+            // Hapus Satu
+            if(isset($cart[$key])) unset($cart[$key]);
         }
-        return back()->with('success', 'Item dihapus.');
+
+        session()->put('cart', $cart);
+        return redirect()->back()->with('success', 'Keranjang diperbarui.');
     }
+
 
 
     /* ============================================================
@@ -225,4 +238,6 @@ class OrderController extends Controller
 
         return back()->with('success', 'Pesanan berhasil dibatalkan.');
     }
+
+    
 }

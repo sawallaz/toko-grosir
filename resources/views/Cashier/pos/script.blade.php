@@ -38,16 +38,14 @@ document.addEventListener('alpine:init', () => {
         payAmount: '', 
         isProcessing: false,
 
-        // WAKTU
+        // WAKTU & NOTIFIKASI
         currentDate: '',
         currentTime: '',
         timeInterval: null,
-        onlineRefreshInterval: null,
-        customerFeedback: '',
-        customerFeedbackColor: '',
-        editingCustId: null,
-        editCustName: '',
-        editCustPhone: '',
+        badgeInterval: null,
+        
+        // NOTIFIKASI BADGE GLOBAL
+        globalOnlineCount: 0,
         
         // HISTORY
         historyData: [], 
@@ -61,7 +59,11 @@ document.addEventListener('alpine:init', () => {
         onlineOrder: null,
         onlinePayAmount: '0',
         isProcessingOnline: false,
-        pendingCount: 0,
+
+        // EDIT CUSTOMER
+        editingCustId: null,
+        editCustName: '',
+        editCustPhone: '',
 
         // INITIALIZATION
         init() {
@@ -71,8 +73,11 @@ document.addEventListener('alpine:init', () => {
             this.updateTime();
             this.timeInterval = setInterval(() => this.updateTime(), 1000);
             
-            // Auto refresh online orders setiap 30 detik jika di tab online
-            this.onlineRefreshInterval = null;
+            // START BADGE AUTO UPDATE
+            this.startBadgeAutoUpdate();
+            
+            // Load badge count segera
+            this.updateBadgeCount();
             
             this.$watch('tab', (value) => {
                 if (value === 'sales') {
@@ -82,37 +87,14 @@ document.addEventListener('alpine:init', () => {
                             if (firstInput) firstInput.focus();
                         }, 100);
                     });
-                    
-                    // Hentikan auto refresh jika ada
-                    if (this.onlineRefreshInterval) {
-                        clearInterval(this.onlineRefreshInterval);
-                        this.onlineRefreshInterval = null;
-                    }
                 }
                 
                 if (value === 'history') {
                     this.loadHistory();
-                    
-                    // Hentikan auto refresh jika ada
-                    if (this.onlineRefreshInterval) {
-                        clearInterval(this.onlineRefreshInterval);
-                        this.onlineRefreshInterval = null;
-                    }
                 }
                 
                 if (value === 'online') {
                     this.loadOnlineOrders();
-                    
-                    // Mulai auto refresh setiap 30 detik
-                    if (this.onlineRefreshInterval) {
-                        clearInterval(this.onlineRefreshInterval);
-                    }
-                    
-                    this.onlineRefreshInterval = setInterval(() => {
-                        if (this.tab === 'online' && !this.loadingOnlineOrders) {
-                            this.loadOnlineOrders();
-                        }
-                    }, 30000); // 30 detik
                 }
             });
             
@@ -125,6 +107,24 @@ document.addEventListener('alpine:init', () => {
                     const firstInput = document.querySelector('input[placeholder*="barcode"]');
                     if (firstInput) firstInput.focus();
                 });
+            }
+        },
+
+        // BADGE AUTO UPDATE
+        startBadgeAutoUpdate() {
+            this.badgeInterval = setInterval(() => {
+                this.updateBadgeCount();
+            }, 15000);
+        },
+        
+        // Update badge count dari server
+        async updateBadgeCount() {
+            try {
+                const response = await fetch('{{ route("pos.online.order.count") }}');
+                const data = await response.json();
+                this.globalOnlineCount = data.total;
+            } catch (error) {
+                console.error('Badge update error:', error);
             }
         },
 
@@ -162,7 +162,7 @@ document.addEventListener('alpine:init', () => {
                     e.preventDefault(); 
                     this.switchTab('online');
                 }
-                // F5 - Refresh (di semua tab)
+                // F5 - Refresh
                 if(e.key === 'F5') { 
                     e.preventDefault(); 
                     if(this.tab === 'online') {
@@ -170,7 +170,6 @@ document.addEventListener('alpine:init', () => {
                     } else if(this.tab === 'history') {
                         this.loadHistory();
                     } else if(this.tab === 'sales') {
-                        // Refresh invoice number di sales
                         this.loadLastInvoice();
                     }
                 }
@@ -213,6 +212,9 @@ document.addEventListener('alpine:init', () => {
         // Switch tab
         switchTab(tabName) {
             this.tab = tabName;
+            if (tabName === 'online') {
+                this.updateBadgeCount();
+            }
         },
 
         // AUTO RESET SETELAH BAYAR
@@ -240,7 +242,6 @@ document.addEventListener('alpine:init', () => {
             this.selectedCustomer = null; 
             this.customerSearchInput = '';
             
-            // Update last invoice number di sidebar
             this.loadLastInvoice();
             
             this.$nextTick(() => {
@@ -338,6 +339,7 @@ document.addEventListener('alpine:init', () => {
             }
         },
         
+        // FUNGSI UPDATE HARGA DENGAN GROSIR - DIPERBAIKI
         updatePrice(index) {
             let row = this.cart[index];
             
@@ -354,23 +356,28 @@ document.addEventListener('alpine:init', () => {
                 return;
             }
             
-            // Cek harga grosir
+            let basePrice = Number(unitData.price);
+            let qty = row.qty || 1;
+            let appliedPrice = basePrice;
+            let isWholesale = false;
+            
+            // CEK HARGA GROSIR - urutkan dari min_qty terbesar ke terkecil
             if(unitData.wholesale && unitData.wholesale.length > 0) {
-                let rules = unitData.wholesale.sort((a, b) => b.min - a.min);
-                let appliedRule = rules.find(r => row.qty >= r.min);
-                if(appliedRule) { 
-                    row.price = Number(appliedRule.price); 
-                    row.isWholesale = true; 
-                } else { 
-                    row.price = Number(unitData.price); 
-                    row.isWholesale = false; 
+                // Sort descending by min_qty
+                let sortedWholesale = [...unitData.wholesale].sort((a, b) => b.min - a.min);
+                
+                for(let wholesaleRule of sortedWholesale) {
+                    if(qty >= wholesaleRule.min) {
+                        appliedPrice = Number(wholesaleRule.price);
+                        isWholesale = true;
+                        break;
+                    }
                 }
-            } else {
-                row.price = Number(unitData.price);
-                row.isWholesale = false;
             }
             
-            row.subtotal = (row.qty || 0) * row.price;
+            row.price = appliedPrice;
+            row.isWholesale = isWholesale;
+            row.subtotal = qty * appliedPrice;
         },
 
         updateSubtotal(index) {
@@ -474,7 +481,7 @@ document.addEventListener('alpine:init', () => {
             return paid >= this.grandTotal ? paid - this.grandTotal : -1;
         },
 
-        // PROSES PEMBAYARAN (AUTO RESET) - PERBAIKAN PRINT BEHAVIOR
+        // PROSES PEMBAYARAN (AUTO RESET)
         async processPayment() {
             if (this.isProcessing) return;
             
@@ -496,7 +503,7 @@ document.addEventListener('alpine:init', () => {
                     cart: validCart.map(item => ({
                         product_unit_id: item.product_unit_id,
                         qty: item.qty,
-                        price: item.price
+                        price: item.price // Harga sudah termasuk grosir
                     })),
                     total_amount: this.grandTotal,
                     pay_amount: this.payAmount,
@@ -701,36 +708,23 @@ document.addEventListener('alpine:init', () => {
 
         // ============ FUNGSI HISTORY ============
         async loadHistory() {
-        try {
-            const params = new URLSearchParams({
-                q: this.historyFilter.q,
-                user_id: this.historyFilter.user_id,
-                start_date: this.historyFilter.start_date,
-                end_date: this.historyFilter.end_date
-            });
-            
-            const response = await fetch(`{{ route('pos.history.json') }}?${params.toString()}`);
-            const data = await response.json();
-            
-            // DEBUG: Lihat struktur data
-            console.log('=== HISTORY DEBUG ===');
-            console.log('Data received:', data);
-            
-            if (data.data && data.data.length > 0) {
-                const firstItem = data.data[0];
-                console.log('First transaction:', firstItem);
-                console.log('Customer object:', firstItem.customer);
-                console.log('Buyer object:', firstItem.buyer);
-                console.log('Customer name:', firstItem.customer?.name);
-                console.log('Buyer name:', firstItem.buyer?.name);
+            try {
+                const params = new URLSearchParams({
+                    q: this.historyFilter.q,
+                    user_id: this.historyFilter.user_id,
+                    start_date: this.historyFilter.start_date,
+                    end_date: this.historyFilter.end_date
+                });
+                
+                const response = await fetch(`{{ route('pos.history.json') }}?${params.toString()}`);
+                const data = await response.json();
+                
+                this.historyData = data.data || [];
+            } catch(error) {
+                console.error('History load error:', error);
+                this.historyData = [];
             }
-            
-            this.historyData = data.data || [];
-        } catch(error) {
-            console.error('History load error:', error);
-            this.historyData = [];
-        }
-    },
+        },
 
         // ============ FUNGSI ONLINE ORDERS ============
         async loadOnlineOrders() {
@@ -747,8 +741,8 @@ document.addEventListener('alpine:init', () => {
                 
                 this.onlineOrders = data.data || [];
                 
-                // Update pending count di sidebar
-                this.pendingCount = this.onlineOrders.filter(order => order.status === 'pending').length;
+                // Update badge count setelah load data
+                this.updateBadgeCount();
                 
             } catch (error) {
                 console.error('Online orders load error:', error);
@@ -759,6 +753,22 @@ document.addEventListener('alpine:init', () => {
             }
         },
 
+        // TAMPILKAN DETAIL PESANAN
+        async viewOrderDetails(id) {
+            try {
+                const url = `{{ route('pos.online.order.detail', ['id' => ':id']) }}`.replace(':id', id);
+                const response = await fetch(url);
+                const data = await response.json();
+                this.onlineOrder = data;
+                this.onlinePayAmount = '0';
+                this.showOnlineDetailModal = true;
+                this.isProcessingOnline = false;
+            } catch (e) { 
+                alert('Gagal memuat detail pesanan'); 
+            }
+        },
+
+        // VIEW MODAL UNTUK BAYAR
         async viewOnlineOrder(id) {
             try {
                 const url = `{{ route('pos.online.order.detail', ['id' => ':id']) }}`.replace(':id', id);
@@ -817,6 +827,7 @@ document.addEventListener('alpine:init', () => {
                     
                     this.showOnlineDetailModal = false;
                     this.loadOnlineOrders();
+                    this.updateBadgeCount();
                     
                 } else { 
                     alert('❌ ' + (data.message || 'Gagal memproses')); 
@@ -847,6 +858,7 @@ document.addEventListener('alpine:init', () => {
                 if(data.status === 'success') {
                     alert('✅ Pesanan berhasil ditolak');
                     this.loadOnlineOrders();
+                    this.updateBadgeCount();
                 } else {
                     alert('❌ Gagal: ' + data.message);
                 }
@@ -877,11 +889,12 @@ document.addEventListener('alpine:init', () => {
                 if(data.status === 'success') {
                     alert('✅ Status berhasil diupdate');
                     this.loadOnlineOrders();
+                    this.updateBadgeCount();
                 } else {
                     alert('❌ Gagal: ' + data.message);
                 }
             } catch(e) {
-                alert('❌ Error sistem');
+                alert('❌ Error sistem: ' + e.message);
             }
         },
 
@@ -891,13 +904,10 @@ document.addEventListener('alpine:init', () => {
             
             const printUrl = `{{ url('/pos/print') }}/${invoiceNumber}`;
             
-            // BUKA TAB BARU UNTUK PRINT, NANTI OTOMATIS PRINT
             const printWindow = window.open(printUrl, '_blank', 'width=400,height=600');
             
-            // OPTIONAL: Auto close setelah print (jika printer support)
             printWindow.onload = function() {
                 printWindow.print();
-                // setTimeout(() => printWindow.close(), 1000); // Opsional: auto close
             };
         },
         
@@ -908,5 +918,4 @@ document.addEventListener('alpine:init', () => {
 
     }));
 });
-
 </script>

@@ -130,7 +130,7 @@
             <div class="flex-1 py-4 space-y-2 px-4">
                 <button @click="switchTab('sales')" 
                         :class="{'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg ring-2 ring-white/20': tab === 'sales', 'text-indigo-200 hover:bg-indigo-800/50 hover:text-white': tab !== 'sales'}"
-                        class="w-full flex items-center px-4 py-3 rounded-lg text-sm font-bold transition-all duration-200 group">
+                        class="w-full flex items-center px-4 py-3 rounded-lg text-sm font-bold transition-all duration-200 group relative">
                     <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path>
                     </svg>
@@ -146,6 +146,7 @@
                     RIWAYAT [F2]
                 </button>
 
+                <!-- TAB ONLINE DENGAN BADGE YANG SELALU UPDATE -->
                 <button @click="switchTab('online')" 
                         :class="{'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg ring-2 ring-white/20': tab === 'online', 'text-indigo-200 hover:bg-indigo-800/50 hover:text-white': tab !== 'online'}"
                         class="w-full flex items-center px-4 py-3 rounded-lg text-sm font-bold transition-all duration-200 relative">
@@ -153,9 +154,11 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9-3-9m-9 9a9 9 0 019-9"></path>
                     </svg>
                     ONLINE [F3]
-                    <span x-show="pendingCount > 0" 
-                          class="absolute right-4 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-lg">
-                        <span x-text="pendingCount"></span>
+                    
+                    <!-- BADGE YANG SELALU TAMPIL DAN AUTO UPDATE -->
+                    <span x-show="globalOnlineCount > 0" 
+                        class="absolute right-4 animate-pulse bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-lg">
+                        <span x-text="globalOnlineCount"></span>
                     </span>
                 </button>
             </div>
@@ -515,24 +518,28 @@
                 <div class="bg-white rounded-2xl shadow-2xl border border-gray-300 h-full flex flex-col overflow-hidden">
                     <!-- Header Online -->
                     <div class="px-8 py-6 border-b bg-gradient-to-r from-gray-50 to-white">
-                       <div class="flex justify-between items-center">
-                           <h2 class="text-2xl font-bold text-gray-800 flex items-center gap-3">
-                               <svg class="w-7 h-7 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9-3-9m-9 9a9 9 0 019-9"></path>
-                               </svg>
-                               Pesanan Online
-                           </h2>
-                           <div class="text-sm text-gray-600">
-                               @if($pendingCount > 0)
-                                   <span class="bg-red-100 text-red-800 px-3 py-1 rounded-full font-bold">{{ $pendingCount }} pesanan menunggu</span>
-                               @else
-                                   Tidak ada pesanan menunggu
-                               @endif
-                           </div>
-                       </div>
-                       
-                       <!-- Pencarian dan Filter -->
-                       <div class="flex gap-4 mt-6">
+                        <div class="flex justify-between items-center">
+                            <h2 class="text-2xl font-bold text-gray-800 flex items-center gap-3">
+                                <svg class="w-7 h-7 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9-3-9m-9 9a9 9 0 019-9"></path>
+                                </svg>
+                                Pesanan Online
+                                <span x-show="globalOnlineCount > 0" class="bg-red-500 text-white text-sm px-3 py-1 rounded-full">
+                                    <span x-text="globalOnlineCount"></span> pesanan
+                                </span>
+                            </h2>
+                            <div class="text-sm text-gray-600">
+                                <button @click="updateBadgeCount()" class="text-blue-600 hover:text-blue-800 flex items-center gap-1">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                                    </svg>
+                                    Refresh Count
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Pencarian dan Filter -->
+                        <div class="flex gap-4 mt-6">
                             <div class="relative flex-1">
                                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                     <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -540,8 +547,8 @@
                                     </svg>
                                 </div>
                                 <input type="text" x-model="onlineSearch" @keyup.enter="loadOnlineOrders()" 
-                                       class="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm shadow-sm" 
-                                       placeholder="Cari invoice / pelanggan...">
+                                    class="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm shadow-sm" 
+                                    placeholder="Cari invoice / pelanggan...">
                             </div>
                             <button @click="loadOnlineOrders()" 
                                     :disabled="loadingOnlineOrders"
@@ -555,11 +562,11 @@
                                 </svg>
                                 <span x-text="loadingOnlineOrders ? 'Loading...' : 'Refresh'"></span>
                             </button>
-                       </div>
+                        </div>
                     </div>
                     
-                    <!-- Daftar Pesanan Online -->
-                    <div class="flex-1 overflow-auto p-8">
+                    <!-- Daftar Pesanan Online DALAM TABEL -->
+                    <div class="flex-1 overflow-auto p-6">
                         <template x-if="onlineOrders.length === 0">
                             <div class="text-center py-16">
                                 <svg class="w-20 h-20 mx-auto mb-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -570,104 +577,130 @@
                             </div>
                         </template>
                         
-                        <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                            <template x-for="order in onlineOrders" :key="order.id">
-                                <div :class="{
-                                    'bg-gradient-to-br from-yellow-50 to-amber-50 border-2 border-yellow-300': order.status === 'pending',
-                                    'bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-300': order.status === 'process',
-                                    'bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-300': order.status === 'ready'
-                                }" class="rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
-                                    
-                                    <!-- Header Pesanan -->
-                                    <div class="flex justify-between items-start mb-6 pb-4 border-b border-gray-200/50">
-                                        <div class="flex-1">
-                                            <div class="flex items-center gap-3 mb-3">
-                                                <div class="font-mono font-bold text-gray-800 text-lg" 
-                                                     x-text="order.invoice_number"></div>
-                                                <span :class="{
-                                                    'bg-gradient-to-r from-yellow-500 to-amber-500': order.status === 'pending',
-                                                    'bg-gradient-to-r from-blue-500 to-cyan-500': order.status === 'process',
-                                                    'bg-gradient-to-r from-green-500 to-emerald-500': order.status === 'ready'
-                                                }" class="text-white text-xs px-3 py-1.5 rounded-full font-bold shadow-sm" 
-                                                     x-text="order.status.toUpperCase()">
-                                                </span>
-                                            </div>
-                                            <div class="space-y-2">
-                                                <div class="text-sm text-gray-600">
-                                                    <span class="font-bold">Customer:</span> 
-                                                    <span class="font-medium text-gray-800 ml-2" 
-                                                          x-text="order.customer ? order.customer.name : (order.buyer ? order.buyer.name : 'Guest')"></span>
-                                                </div>
-                                                <div class="text-sm text-gray-600 flex items-center gap-2">
-                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                                    </svg>
-                                                    <span x-text="new Date(order.created_at).toLocaleString('id-ID')"></span>
-                                                </div>
-                                                <div class="text-sm text-gray-600" x-show="order.details">
-                                                    <span class="font-bold">Items:</span> 
-                                                    <span class="ml-2" x-text="order.details.length"></span> barang
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="text-right">
-                                            <div class="font-black text-2xl text-gray-900 mb-1" 
-                                                 x-text="formatRupiah(order.total_amount)"></div>
-                                            <div class="text-xs text-gray-500">Total Pembayaran</div>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- Tombol Aksi -->
-                                    <div class="space-y-3">
-                                        <template x-if="order.status === 'pending'">
-                                            <div class="grid grid-cols-3 gap-3">
-                                                <button @click="updateOrderStatus(order.id, 'process')" 
-                                                        class="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-4 py-3 rounded-lg font-bold text-sm shadow-lg hover:shadow-xl transition-all duration-200">
-                                                    🚀 Proses
-                                                </button>
-                                                <button @click="viewOnlineOrder(order.id)" 
-                                                        class="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-4 py-3 rounded-lg font-bold text-sm shadow-lg hover:shadow-xl transition-all duration-200">
-                                                    💳 Bayar
-                                                </button>
-                                                <button @click="rejectOrder(order.id)" 
-                                                        class="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-4 py-3 rounded-lg font-bold text-sm shadow-lg hover:shadow-xl transition-all duration-200">
-                                                    ❌ Batal
-                                                </button>
-                                            </div>
+                        <template x-if="onlineOrders.length > 0">
+                            <div class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-lg">
+                                <table class="min-w-full divide-y divide-gray-200">
+                                    <thead class="bg-gradient-to-r from-gray-800 to-gray-900 text-white">
+                                        <tr>
+                                            <th class="px-6 py-4 text-left text-sm font-bold uppercase tracking-wider">Invoice</th>
+                                            <th class="px-6 py-4 text-left text-sm font-bold uppercase tracking-wider">Pelanggan</th>
+                                            <th class="px-6 py-4 text-left text-sm font-bold uppercase tracking-wider">Waktu Order</th>
+                                            <th class="px-6 py-4 text-left text-sm font-bold uppercase tracking-wider">Status</th>
+                                            <th class="px-6 py-4 text-right text-sm font-bold uppercase tracking-wider">Total</th>
+                                            <th class="px-6 py-4 text-center text-sm font-bold uppercase tracking-wider">Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-100">
+                                        <template x-for="order in onlineOrders" :key="order.id">
+                                            <tr class="hover:bg-gray-50 transition-colors">
+                                                <td class="px-6 py-4">
+                                                    <div class="font-mono font-bold text-indigo-700" 
+                                                        x-text="order.invoice_number"></div>
+                                                    <div class="text-xs text-gray-500 mt-1">
+                                                        <span x-text="order.details.length"></span> item
+                                                    </div>
+                                                </td>
+                                                <td class="px-6 py-4">
+                                                    <div class="font-medium text-gray-900">
+                                                        <template x-if="order.customer">
+                                                            <span x-text="order.customer.name"></span>
+                                                        </template>
+                                                        <template x-if="!order.customer && order.buyer">
+                                                            <span x-text="order.buyer.name"></span>
+                                                        </template>
+                                                        <template x-if="!order.customer && !order.buyer">
+                                                            <span class="text-gray-500">Pelanggan Umum</span>
+                                                        </template>
+                                                    </div>
+                                                    <div class="text-sm text-gray-500 mt-1">
+                                                        <template x-if="order.details && order.details.length > 0">
+                                                            <span class="font-medium">Barang:</span>
+                                                            <span class="ml-2" x-text="order.details.map(d => d.product_name).join(', ')"></span>
+                                                        </template>
+                                                    </div>
+                                                </td>
+                                                <td class="px-6 py-4">
+                                                    <div class="text-sm text-gray-900">
+                                                        <span x-text="new Date(order.created_at).toLocaleDateString('id-ID')"></span>
+                                                    </div>
+                                                    <div class="text-xs text-gray-500">
+                                                        <span x-text="new Date(order.created_at).toLocaleTimeString('id-ID')"></span>
+                                                    </div>
+                                                </td>
+                                                <td class="px-6 py-4">
+                                                    <span :class="{
+                                                        'bg-yellow-100 text-yellow-800': order.status === 'pending',
+                                                        'bg-blue-100 text-blue-800': order.status === 'process',
+                                                        'bg-green-100 text-green-800': order.status === 'ready'
+                                                    }" class="px-3 py-1.5 rounded-full text-xs font-bold" 
+                                                        x-text="order.status.toUpperCase()">
+                                                    </span>
+                                                </td>
+                                                <td class="px-6 py-4 text-right">
+                                                    <div class="font-bold text-lg text-gray-900" 
+                                                        x-text="formatRupiah(order.total_amount)"></div>
+                                                </td>
+                                                <td class="px-6 py-4 text-center">
+                                                    <div class="flex flex-col gap-2">
+                                                        <button @click="viewOrderDetails(order.id)" 
+                                                                class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg font-bold text-xs shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-1">
+                                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                                            </svg>
+                                                            Detail
+                                                        </button>
+                                                        
+                                                        <!-- TOMBOL STATUS -->
+                                                        <template x-if="order.status === 'pending'">
+                                                            <div class="grid grid-cols-2 gap-1">
+                                                                <button @click="updateOrderStatus(order.id, 'process')" 
+                                                                        class="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1.5 rounded text-xs font-bold transition-all">
+                                                                    Proses
+                                                                </button>
+                                                                <button @click="rejectOrder(order.id)" 
+                                                                        class="bg-red-500 hover:bg-red-600 text-white px-2 py-1.5 rounded text-xs font-bold transition-all">
+                                                                    Batal
+                                                                </button>
+                                                            </div>
+                                                        </template>
+                                                        
+                                                        <template x-if="order.status === 'process'">
+                                                            <div class="grid grid-cols-2 gap-1">
+                                                                <button @click="updateOrderStatus(order.id, 'pending')" 
+                                                                        class="bg-yellow-500 hover:bg-yellow-600 text-white px-2 py-1.5 rounded text-xs font-bold transition-all">
+                                                                    Kembali
+                                                                </button>
+                                                                <button @click="updateOrderStatus(order.id, 'ready')" 
+                                                                        class="bg-green-500 hover:bg-green-600 text-white px-2 py-1.5 rounded text-xs font-bold transition-all">
+                                                                    Siap
+                                                                </button>
+                                                            </div>
+                                                        </template>
+                                                        
+                                                        <template x-if="order.status === 'ready'">
+                                                            <button @click="viewOnlineOrder(order.id)" 
+                                                                    class="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-4 py-2 rounded-lg font-bold text-xs shadow-lg hover:shadow-xl transition-all duration-200">
+                                                                Bayar & Selesaikan
+                                                            </button>
+                                                        </template>
+                                                    </div>
+                                                </td>
+                                            </tr>
                                         </template>
-                                        
-                                        <template x-if="order.status === 'process'">
-                                            <div class="grid grid-cols-3 gap-3">
-                                                <button @click="updateOrderStatus(order.id, 'pending')" 
-                                                        class="bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-600 hover:to-amber-600 text-white px-4 py-3 rounded-lg font-bold text-sm shadow-lg hover:shadow-xl transition-all duration-200">
-                                                    ↩ Kembali
-                                                </button>
-                                                <button @click="updateOrderStatus(order.id, 'ready')" 
-                                                        class="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white px-4 py-3 rounded-lg font-bold text-sm shadow-lg hover:shadow-xl transition-all duration-200">
-                                                    ✅ Siap
-                                                </button>
-                                                <button @click="viewOnlineOrder(order.id)" 
-                                                        class="bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white px-4 py-3 rounded-lg font-bold text-sm shadow-lg hover:shadow-xl transition-all duration-200">
-                                                    💰 Bayar
-                                                </button>
-                                            </div>
-                                        </template>
-                                        
-                                        <template x-if="order.status === 'ready'">
-                                            <div class="grid grid-cols-1 gap-3">
-                                                <button @click="viewOnlineOrder(order.id)" 
-                                                        class="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-6 py-4 rounded-lg font-bold shadow-lg hover:shadow-xl transition-all duration-200 text-base">
-                                                    🎉 Bayar & Selesaikan Pesanan
-                                                </button>
-                                            </div>
-                                        </template>
-                                    </div>
+                                    </tbody>
+                                </table>
+                                
+                                <!-- Pagination Info -->
+                                <div class="px-6 py-4 border-t bg-gray-50 text-sm text-gray-600">
+                                    Menampilkan <span x-text="onlineOrders.length"></span> pesanan online
                                 </div>
-                            </template>
-                        </div>
+                            </div>
+                        </template>
                     </div>
                 </div>
             </div>
+            
         </div>
 
         <!-- MODAL DETAIL PESANAN ONLINE -->

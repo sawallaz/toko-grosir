@@ -106,6 +106,7 @@ Route::middleware(['auth', 'verified', 'role:kasir,admin'])->group(function () {
     Route::post('/online-order/{id}/reject', [PosController::class, 'rejectOrder'])->name('pos.online.order.reject');
     Route::post('/online-order/{id}/update-status', [PosController::class, 'updateOrderStatus'])->name('pos.online.order.updateStatus');
     Route::get('/online-orders', [PosController::class, 'onlineOrdersJson'])->name('pos.online.orders.json');
+    Route::get('/pos/online/count', [PosController::class, 'getOnlineOrderCount'])->name('pos.online.order.count');
 });
 
 
